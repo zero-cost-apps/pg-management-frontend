@@ -525,7 +525,7 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         payments,
         electricityRecords,
         isDbReady: !buildingsQuery.isLoading,
-        dbEngineName: 'Next.js Backend (Chunked Local JSON Database)',
+        dbEngineName: 'Google Cloud Firebase Firestore (Cloud Database)',
         lastSyncTime: new Date().toLocaleTimeString('en-IN'),
         selectedBuildingId,
         setSelectedBuildingId,
