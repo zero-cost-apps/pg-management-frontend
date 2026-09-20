@@ -8,6 +8,7 @@ import {
   clearStoredTokens,
 } from '../api/client';
 import { queryClient } from '../api/queries';
+import toast from 'react-hot-toast';
 
 export const SAAS_PLANS: Record<SaasPlanTier, {
   name: string;
@@ -184,7 +185,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Logout handler calling Next.js API
   const logout = () => {
-    api.auth.logout().catch(() => {});
+    api.auth.logout().catch(() => { });
     clearStoredTokens();
     queryClient.clear();
     setCurrentUser(null);
@@ -201,6 +202,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await queryClient.invalidateQueries();
     } catch (err: any) {
       console.error('Onboarding completion failed:', err);
+      let errors = err?.fields ? Object.values(err.fields).flat() : [err.message]
+      console.log("err", err, JSON.stringify(err))
+      toast.error(<ul> {errors.map(e => <li>{e}</li>)}</ul>)
       throw err;
     }
   };

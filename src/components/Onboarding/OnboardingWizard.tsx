@@ -1,23 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usePG } from '../../context/PGContext';
 import { OnboardingData, RoomTypeConfig, Building, Room, Tenant } from '../../types';
 import confetti from 'canvas-confetti';
-import { 
-  Building2, 
-  Home, 
-  User, 
-  Check, 
-  ArrowRight, 
-  ArrowLeft, 
-  Sparkles, 
-  ShieldCheck, 
-  Zap, 
-  CreditCard, 
-  Calendar, 
-  Plus, 
-  MapPin, 
-  CheckCircle2, 
+import {
+  Building2,
+  Home,
+  User,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  CreditCard,
+  Calendar,
+  Plus,
+  MapPin,
+  CheckCircle2,
   Layers,
   Phone,
   QrCode,
@@ -25,6 +25,7 @@ import {
   Users,
   LogOut
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const COMMON_AMENITIES = [
   'High-Speed Wi-Fi',
@@ -51,16 +52,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // STEP 1: Business Identity State
-  const [businessName, setBusinessName] = useState(currentUser?.businessName || 'Skyline Co-Living & PG');
+  const [businessName, setBusinessName] = useState(currentUser?.businessName || '');
   const [businessType, setBusinessType] = useState<'mens_pg' | 'womens_pg' | 'coliving' | 'hostel'>('coliving');
-  const [city, setCity] = useState('Bengaluru');
-  const [ownerPhone, setOwnerPhone] = useState(currentUser?.phone || '9876543210');
-  const [upiId, setUpiId] = useState('skylinepg@oksbi');
+  const [city, setCity] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState(currentUser?.phone || '');
+  const [upiId, setUpiId] = useState('');
 
   // STEP 2: Property & Floor Structure State
-  const [buildingName, setBuildingName] = useState('Skyline Tower - Block A');
-  const [buildingCode, setBuildingCode] = useState('STA');
-  const [address, setAddress] = useState('14, 5th Main, 7th Sector, HSR Layout');
+  const [buildingName, setBuildingName] = useState('');
+  const [buildingCode, setBuildingCode] = useState('');
+  const [address, setAddress] = useState('');
   const [billingDueDay, setBillingDueDay] = useState<number>(5);
   const [electricityRate, setElectricityRate] = useState<number>(10);
   const [totalFloors, setTotalFloors] = useState<number>(2);
@@ -70,7 +71,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     'High-Speed Wi-Fi',
     'Attached Washroom',
-    '3-Times Homely Food',
     '24/7 RO Drinking Water',
     'CCTV Security',
     'Power Backup / Inverter'
@@ -78,15 +78,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
   // STEP 3: Initial Tenant Intake (Optional)
   const [intakeMode, setIntakeMode] = useState<'sample' | 'custom' | 'empty'>('sample');
-  const [firstTenantName, setFirstTenantName] = useState('Aditya Nair');
-  const [firstTenantPhone, setFirstTenantPhone] = useState('9876500111');
-  const [firstTenantEmail, setFirstTenantEmail] = useState('aditya.nair@example.com');
-  const [firstTenantRent, setFirstTenantRent] = useState<number>(8500);
-  const [firstTenantDeposit, setFirstTenantDeposit] = useState<number>(17000);
+  const [firstTenantName, setFirstTenantName] = useState('');
+  const [firstTenantPhone, setFirstTenantPhone] = useState('');
+  // const [firstTenantEmail, setFirstTenantEmail] = useState('');
+  const [firstTenantRent, setFirstTenantRent] = useState<number>(0);
+  const [firstTenantDeposit, setFirstTenantDeposit] = useState<number>(0);
 
   // Toggle amenity helper
   const toggleAmenity = (amenity: string) => {
-    setSelectedAmenities(prev => 
+    setSelectedAmenities(prev =>
       prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
     );
   };
@@ -94,6 +94,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   // Calculate generated total rooms
   const totalGeneratedRooms = totalFloors * roomsPerFloor;
 
+  useEffect(() => {
+    if (buildingName && buildingName.length >= 2) {
+      setBuildingCode(buildingName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
+    }
+  }, [buildingName])
   // Final submit & property provisioning
   const handleFinishOnboarding = async () => {
     setIsSubmitting(true);
@@ -140,11 +145,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         roomCapacity: defaultRoomCapacity,
         defaultBaseRent,
         amenities: selectedAmenities,
-        addInitialTenant: intakeMode !== 'empty',
-        seedSampleData: intakeMode === 'sample',
+        addInitialTenant: false,
+        seedSampleData: false,
         initialTenantName: firstTenantName,
         initialTenantPhone: firstTenantPhone,
-        initialTenantEmail: firstTenantEmail,
+        // initialTenantEmail: firstTenantEmail,
         initialTenantRent: firstTenantRent,
         initialTenantDeposit: firstTenantDeposit,
       };
@@ -170,7 +175,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden">
-      
+
       {/* Ambient background decoration */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b12_1px,transparent_1px),linear-gradient(to_bottom,#1e293b12_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none" />
       <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-indigo-600/15 blur-[120px] rounded-full pointer-events-none" />
@@ -207,10 +212,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
       {/* Stepper Progress Bar */}
       <div className="relative z-10 max-w-3xl mx-auto w-full px-4 pt-8 pb-4">
         <div className="flex items-center justify-between relative">
-          
+
           {/* Background Connecting Line */}
           <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-800 -translate-y-1/2 z-0" />
-          <div 
+          <div
             className="absolute top-1/2 left-0 h-0.5 bg-indigo-600 -translate-y-1/2 z-0 transition-all duration-300"
             style={{ width: `${((currentStep - 1) / 3) * 100}%` }}
           />
@@ -233,19 +238,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     if (item.step < currentStep) setCurrentStep(item.step);
                   }}
                   disabled={item.step > currentStep}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-                    isCompleted
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
-                      : isCurrent
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${isCompleted
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
+                    : isCurrent
                       ? 'bg-indigo-600 text-white ring-4 ring-indigo-500/20 shadow-lg shadow-indigo-600/40'
                       : 'bg-slate-800 text-slate-400'
-                  }`}
+                    }`}
                 >
                   {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                 </button>
-                <span className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${
-                  isCurrent ? 'text-white' : 'text-slate-400'
-                }`}>
+                <span className={`text-[11px] font-semibold mt-1.5 hidden sm:block ${isCurrent ? 'text-white' : 'text-slate-400'
+                  }`}>
                   {item.label}
                 </span>
               </div>
@@ -257,7 +260,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
       {/* Main Wizard Content Card */}
       <main className="relative z-10 max-w-3xl mx-auto w-full px-4 py-4 flex-1">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
-          
+
           {/* STEP 1: BUSINESS BRAND & PROFILE */}
           {currentStep === 1 && (
             <div className="space-y-6">
@@ -301,11 +304,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         type="button"
                         key={type.id}
                         onClick={() => setBusinessType(type.id as any)}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          businessType === type.id
-                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
+                        className={`p-3 rounded-xl border text-left transition-all ${businessType === type.id
+                          ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
                       >
                         <p className="text-xs font-bold text-white">{type.label}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">{type.desc}</p>
@@ -549,11 +551,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                           type="button"
                           key={amenity}
                           onClick={() => toggleAmenity(amenity)}
-                          className={`p-2 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                            isSelected
-                              ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
+                          className={`p-2 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${isSelected
+                            ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
                         >
                           <span className="text-[11px] truncate">{amenity}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />}
@@ -584,11 +585,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 <button
                   type="button"
                   onClick={() => setIntakeMode('sample')}
-                  className={`p-4 rounded-xl border text-left transition-all ${
-                    intakeMode === 'sample'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
+                  className={`p-4 rounded-xl border text-left transition-all ${intakeMode === 'sample'
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <Sparkles className="w-5 h-5 text-indigo-400" />
@@ -602,14 +602,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   </p>
                 </button>
 
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setIntakeMode('custom')}
-                  className={`p-4 rounded-xl border text-left transition-all ${
-                    intakeMode === 'custom'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
+                  className={`p-4 rounded-xl border text-left transition-all ${intakeMode === 'custom'
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <Plus className="w-5 h-5 text-emerald-400" />
@@ -618,16 +617,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                   <p className="text-[11px] text-slate-400 mt-1">
                     Enter details for a real resident checking into Room 101 right now.
                   </p>
-                </button>
+                </button> */}
 
                 <button
                   type="button"
                   onClick={() => setIntakeMode('empty')}
-                  className={`p-4 rounded-xl border text-left transition-all ${
-                    intakeMode === 'empty'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
+                  className={`p-4 rounded-xl border text-left transition-all ${intakeMode === 'empty'
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <Home className="w-5 h-5 text-slate-400" />
@@ -718,7 +716,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
+
                 {/* Brand & Building Card */}
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
                   <div className="flex items-center gap-2 text-indigo-400">
@@ -789,11 +787,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                     <span className="text-xs font-bold uppercase tracking-wider">Initial Residents</span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    {intakeMode === 'empty' 
+                    {intakeMode === 'empty'
                       ? 'No tenants yet — all rooms ready for check-in.'
                       : intakeMode === 'sample'
-                      ? 'Aditya Nair (Room 101) pre-loaded for instant operations.'
-                      : `${firstTenantName} (Room 101) registered.`
+                        ? 'Aditya Nair (Room 101) pre-loaded for instant operations.'
+                        : `${firstTenantName} (Room 101) registered.`
                     }
                   </p>
                   <p className="text-[11px] text-slate-500">
@@ -825,8 +823,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 type="button"
                 id="onboarding-next-btn"
                 onClick={() => {
-                  if (currentStep === 1 && !businessName.trim()) return;
-                  if (currentStep === 2 && !buildingName.trim()) return;
+                  // console.log("clicked", businessName, currentStep)
+                  if (currentStep === 1 && !businessName.trim()) {
+                    toast.error("Business name is mandatory!")
+                    return;
+                  }
+                  if (currentStep === 2 && !buildingName.trim()) {
+                    toast.error("Building name is mandatory!")
+                    return;
+                  }
                   setCurrentStep(prev => prev + 1);
                 }}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-900/30 active:scale-98"
