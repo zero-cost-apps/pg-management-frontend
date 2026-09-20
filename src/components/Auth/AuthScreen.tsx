@@ -32,8 +32,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('owner@staysync.in');
-  const [loginPassword, setLoginPassword] = useState('admin123');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
 
   // Register form state
@@ -540,7 +540,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                 </div>
                 <p className="text-xs text-white font-semibold">Password Reset Sent</p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  We've sent a 6-digit security recovery PIN to <strong>{forgotEmail}</strong>. You can use standard demo password <code className="text-indigo-300">admin123</code> to log in.
+                  We've sent a 6-digit security recovery PIN to <strong>{forgotEmail}</strong>. You can use standard demo password <code className="text-indigo-300"></code> to log in.
                 </p>
                 <button
                   onClick={() => {
