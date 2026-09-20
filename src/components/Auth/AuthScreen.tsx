@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
-import { 
-  Building2, 
-  Lock, 
-  Mail, 
-  Phone, 
-  User, 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  CheckCircle2, 
-  AlertCircle, 
-  Sparkles, 
-  ShieldCheck, 
+import {
+  Building2,
+  Lock,
+  Mail,
+  Phone,
+  User,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  ShieldCheck,
   KeyRound,
   X
 } from 'lucide-react';
@@ -47,9 +47,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [agreeTerms, setAgreeTerms] = useState(true);
 
   // Forgot password modal state
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
+  // const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  // const [forgotEmail, setForgotEmail] = useState('');
+  // const [forgotSent, setForgotSent] = useState(false);
 
   // Handle Login
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -138,22 +138,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleFillSampleCredentials = () => {
-    setLoginIdentifier('owner@staysync.in');
-    setLoginPassword('admin123');
-    setActiveTab('login');
-  };
+
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      
+
       {/* Decorative background grid and ambient radial light */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
 
       {/* Main Container */}
       <div className="relative sm:mx-auto sm:w-full sm:max-w-md px-4">
-        
+
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 mb-3">
@@ -167,7 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
         {/* Auth Card */}
         <div className="bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
-          
+
           {/* Tab Navigation */}
           <div className="flex border-b border-slate-800 bg-slate-950/60 p-1.5 gap-1.5">
             <button
@@ -178,11 +174,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
-                activeTab === 'login'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'login'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               Sign In
             </button>
@@ -194,18 +189,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
-                activeTab === 'register'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'register'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
             >
               Create Account
             </button>
           </div>
 
           <div className="p-6">
-            
+
             {/* Feedback Banners */}
             {errorMessage && (
               <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-rose-400 text-xs animate-in fade-in">
@@ -249,13 +243,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                     <label className="text-xs font-semibold text-slate-300">
                       Password
                     </label>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => setIsForgotModalOpen(true)}
                       className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
                     >
                       Forgot password?
-                    </button>
+                    </button> */}
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -502,15 +496,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                 </div>
               </div>
 
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={handleFillSampleCredentials}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium underline underline-offset-2 transition-colors"
-                >
-                  Fill sample owner credentials to test workspace
-                </button>
-              </div>
             </div>
 
           </div>
@@ -528,7 +513,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       </div>
 
       {/* Forgot Password Modal */}
-      {isForgotModalOpen && (
+      {/* {isForgotModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
             <button
@@ -599,7 +584,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             )}
           </div>
         </div>
-      )}
+      )} */}
 
     </div>
   );
