@@ -15,7 +15,8 @@ import {
   PaymentStatus,
 } from '../types';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/v1';
+const rawEnvUrl = (import.meta.env.VITE_API_URL || '/v1').trim().replace(/\/+$/, '');
+const BASE_URL = rawEnvUrl.endsWith('/v1') ? rawEnvUrl : `${rawEnvUrl}/v1`;
 
 export const TOKEN_STORAGE_KEY = 'staysync_access_token';
 export const REFRESH_TOKEN_STORAGE_KEY = 'staysync_refresh_token';
@@ -77,7 +78,8 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${cleanEndpoint}`;
 
   let res: Response;
   try {
