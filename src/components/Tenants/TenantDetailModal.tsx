@@ -1,32 +1,21 @@
+import {
+  Building2,
+  Clock,
+  CreditCard,
+  FileText,
+  Home,
+  LogOut,
+  Phone,
+  Plus,
+  Upload,
+  Users,
+  X
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { usePG } from '../../context/PGContext';
-import { Tenant, TenantDocument, DocType } from '../../types';
-import { CoOccupantModal } from '../Rooms/CoOccupantModal';
+import { DocType, Tenant } from '../../types';
 import { AadharPdfViewerModal } from '../Rooms/AadharPdfViewerModal';
-import { 
-  X, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Briefcase, 
-  ShieldCheck, 
-  AlertCircle, 
-  FileText, 
-  Upload, 
-  Receipt, 
-  CreditCard, 
-  Clock, 
-  LogOut, 
-  Check, 
-  Eye,
-  Building2,
-  Home,
-  CheckCircle2,
-  Download,
-  Users,
-  Plus
-} from 'lucide-react';
+import { CoOccupantModal } from '../Rooms/CoOccupantModal';
 
 interface TenantDetailModalProps {
   tenant: Tenant | null;
@@ -39,14 +28,14 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
   onClose,
   onOpenCollectRent
 }) => {
-  const { 
-    buildings, 
-    rooms, 
+  const {
+    buildings,
+    rooms,
     coOccupants,
-    payments, 
-    setReceiptToView, 
-    vacateTenant, 
-    addTenantDocument, 
+    payments,
+    setReceiptToView,
+    vacateTenant,
+    addTenantDocument,
     updateDocumentStatus,
     updateTenant,
     setCoOccupantToViewAadhaar,
@@ -117,8 +106,8 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
-        
+      <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
+
         {/* Modal Header & Hero */}
         <div className="p-6 bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 text-white relative">
           <button
@@ -138,11 +127,10 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xl font-bold">{tenant.fullName}</h3>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  tenant.status === 'active' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${tenant.status === 'active' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
                   tenant.status === 'notice_period' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                  'bg-slate-500/20 text-slate-300 border border-slate-500/30'
-                }`}>
+                    'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                  }`}>
                   {tenant.status.replace('_', ' ')}
                 </span>
               </div>
@@ -219,34 +207,30 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
         <div className="flex border-b border-slate-200 bg-slate-50/70 px-6 text-xs font-semibold text-slate-600">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`py-3 px-3 border-b-2 transition-all ${
-              activeTab === 'profile' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
-            }`}
+            className={`py-3 px-3 border-b-2 transition-all ${activeTab === 'profile' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
+              }`}
           >
             Personal & Work Info
           </button>
           <button
             onClick={() => setActiveTab('guests')}
-            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'guests' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
-            }`}
+            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${activeTab === 'guests' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
+              }`}
           >
             <Users className="w-3.5 h-3.5" />
             Room Guests & Members ({roomGuests.length})
           </button>
           <button
             onClick={() => setActiveTab('documents')}
-            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'documents' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
-            }`}
+            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${activeTab === 'documents' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
+              }`}
           >
             KYC Documents ({tenant.documents.length})
           </button>
           <button
             onClick={() => setActiveTab('payments')}
-            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${
-              activeTab === 'payments' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
-            }`}
+            className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 ${activeTab === 'payments' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent hover:text-slate-900'
+              }`}
           >
             Rent Receipts & Ledger ({tenantPayments.length})
           </button>
@@ -254,11 +238,11 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
 
         {/* Tab Content Body */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
-          
+
           {/* 1. Profile Tab */}
           {activeTab === 'profile' && (
             <div className="space-y-5 text-xs text-slate-700">
-              
+
               {/* Personal Details */}
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
@@ -334,11 +318,10 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
                   </div>
                   <div>
                     <p className="text-slate-500">Deposit Status</p>
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                      tenant.depositStatus === 'paid' ? 'bg-emerald-100 text-emerald-800' :
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${tenant.depositStatus === 'paid' ? 'bg-emerald-100 text-emerald-800' :
                       tenant.depositStatus === 'partial' ? 'bg-amber-100 text-amber-800' :
-                      'bg-rose-100 text-rose-800'
-                    }`}>
+                        'bg-rose-100 text-rose-800'
+                      }`}>
                       {tenant.depositStatus}
                     </span>
                   </div>
@@ -558,11 +541,10 @@ export const TenantDetailModal: React.FC<TenantDetailModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        doc.status === 'verified' ? 'bg-emerald-100 text-emerald-800' :
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${doc.status === 'verified' ? 'bg-emerald-100 text-emerald-800' :
                         doc.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                        'bg-rose-100 text-rose-800'
-                      }`}>
+                          'bg-rose-100 text-rose-800'
+                        }`}>
                         {doc.status}
                       </span>
                     </div>
