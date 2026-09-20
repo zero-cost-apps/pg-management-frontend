@@ -1,0 +1,6 @@
+{
+  "name": "StaySync PG Management",
+  "description": "Multi-building PG management software featuring real-time room occupancy and guest tracking, manual rent collection with printable receipts, monthly electricity meter records, per-building configurations, complete tenant profiles with Aadhaar document viewer, and automated overdue payment reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
