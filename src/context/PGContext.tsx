@@ -68,6 +68,12 @@ interface PGContextType {
   setTenantToView: (tenant: Tenant | null) => void;
   coOccupantToViewAadhaar: CoOccupant | null;
   setCoOccupantToViewAadhaar: (co: CoOccupant | null) => void;
+  isRentModalOpen: boolean;
+  setIsRentModalOpen: (open: boolean) => void;
+  rentModalPreselectedTenantId?: string;
+  setRentModalPreselectedTenantId: (id?: string) => void;
+  openRentModal: (tenantId?: string) => void;
+  closeRentModal: () => void;
 
   // Computed Analytics
   stats: DashboardStats;
@@ -130,6 +136,18 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [receiptToView, setReceiptToView] = useState<RentPayment | null>(null);
   const [tenantToView, setTenantToView] = useState<Tenant | null>(null);
   const [coOccupantToViewAadhaar, setCoOccupantToViewAadhaar] = useState<CoOccupant | null>(null);
+  const [isRentModalOpen, setIsRentModalOpen] = useState(false);
+  const [rentModalPreselectedTenantId, setRentModalPreselectedTenantId] = useState<string | undefined>(undefined);
+
+  const openRentModal = (tenantId?: string) => {
+    setRentModalPreselectedTenantId(tenantId);
+    setIsRentModalOpen(true);
+  };
+
+  const closeRentModal = () => {
+    setIsRentModalOpen(false);
+    setRentModalPreselectedTenantId(undefined);
+  };
 
   // TanStack Queries (Active when logged in and onboarded)
   const isQueryEnabled = isAuthenticated && !!currentUser?.isOnboarded;
@@ -522,6 +540,12 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         setTenantToView,
         coOccupantToViewAadhaar,
         setCoOccupantToViewAadhaar,
+        isRentModalOpen,
+        setIsRentModalOpen,
+        rentModalPreselectedTenantId,
+        setRentModalPreselectedTenantId,
+        openRentModal,
+        closeRentModal,
         stats,
         overdueList,
         addBuilding,

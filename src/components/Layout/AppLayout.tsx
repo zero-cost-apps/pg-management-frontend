@@ -33,12 +33,17 @@ import {
   ArrowRight,
   Settings
 } from 'lucide-react';
+import {
+  useLocation,
+  useNavigate,
+  Outlet
+} from '@tanstack/react-router';
 
 interface AppLayoutProps {
-  currentTab: string;
-  onTabChange: (tab: string) => void;
-  children: React.ReactNode;
-  onOpenRentModal: (tenantId?: string) => void;
+  currentTab?: string;
+  onTabChange?: (tab: string) => void;
+  children?: React.ReactNode;
+  onOpenRentModal?: (tenantId?: string) => void;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -62,10 +67,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     dbEngineName,
     lastSyncTime,
     exportDataJson,
-    resetToSampleData
+    resetToSampleData,
+    openRentModal
   } = usePG();
 
   const { currentUser, logout, resetOnboardingForTesting } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const pathTab = location.pathname.replace(/^\//, '').split('/')[0] || 'dashboard';
+  const activeTab = currentTab || pathTab;
+
+  const handleTabChange = (tab: string) => {
+    if (onTabChange) onTabChange(tab);
+    navigate({ to: `/${tab}` as any });
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleBrandClick = () => {
+    if (onTabChange) onTabChange('dashboard');
+    navigate({ to: '/dashboard' });
+  };
+
+  const handleOpenRent = (tenantId?: string) => {
+    if (onOpenRentModal) {
+      onOpenRentModal(tenantId);
+    } else {
+      openRentModal(tenantId);
+    }
+  };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showDbMenu, setShowDbMenu] = useState(false);
@@ -133,7 +163,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
             {/* Brand Mark */}
             <div
-              onClick={() => onTabChange('dashboard')}
+              onClick={handleBrandClick}
               className="flex items-center gap-2.5 cursor-pointer select-none group"
             >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 flex items-center justify-center text-white font-black shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
@@ -158,7 +188,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
                 <span>Management</span>
                 <span>/</span>
-                <span className="text-indigo-600 font-semibold capitalize">{currentTab}</span>
+                <span className="text-indigo-600 font-semibold capitalize">{activeTab}</span>
                 {selectedBuildingId !== 'all' && currentBuilding && (
                   <>
                     <span>/</span>
@@ -167,7 +197,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 )}
               </div>
               <h2 className="text-sm font-bold text-slate-900 leading-tight truncate">
-                {getTabTitle(currentTab)}
+                {getTabTitle(activeTab)}
               </h2>
             </div>
 
@@ -316,7 +346,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Manual Collect Rent Button */}
             <button
               id="navbar-collect-rent-btn"
-              onClick={() => onOpenRentModal()}
+              onClick={() => handleOpenRent()}
               className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-emerald-700/20"
             >
               <CreditCard className="w-3.5 h-3.5" />
@@ -502,16 +532,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             <nav className="p-3 space-y-1">
               {navItems.map(item => {
                 const Icon = item.icon;
-                const isActive = currentTab === item.id;
+                const isActive = activeTab === item.id;
 
                 return (
                   <button
                     key={item.id}
                     id={`nav-item-${item.id}`}
-                    onClick={() => {
-                      onTabChange(item.id);
-                      setIsMobileMenuOpen(false);
-                    }}
+                    onClick={() => handleTabChange(item.id)}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isActive
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-900/30'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -650,7 +677,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
           {/* Main View Body */}
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-            {children}
+            {children || <Outlet />}
           </main>
 
         </div>
