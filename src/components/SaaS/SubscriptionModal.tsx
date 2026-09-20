@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { useAuth, SAAS_PLANS } from '../../context/AuthContext';
 import { usePG } from '../../context/PGContext';
 import { SaasPlanTier } from '../../types';
-import { 
-  X, 
-  Check, 
-  Zap, 
-  Crown, 
-  ShieldCheck, 
-  Building2, 
-  Home, 
-  CreditCard, 
+import {
+  X,
+  Check,
+  Zap,
+  Crown,
+  ShieldCheck,
+  Building2,
+  Home,
+  CreditCard,
   ArrowRight,
   Download,
   Calendar,
@@ -61,7 +61,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div 
+      <div
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -94,7 +94,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6">
-          
+
           {upgradeSuccess && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-semibold animate-in fade-in duration-200">
               <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -104,7 +104,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
 
           {/* Current Plan & Usage Meter Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
+
             {/* Active Plan Card */}
             <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col justify-between">
               <div>
@@ -132,10 +132,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
                   <span className="text-xs font-bold text-indigo-600">{totalRoomsUsed} / {currentSub.maxRooms}</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full mt-2.5 overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      roomPercentage > 85 ? 'bg-amber-500' : 'bg-indigo-600'
-                    }`}
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${roomPercentage > 85 ? 'bg-amber-500' : 'bg-indigo-600'
+                      }`}
                     style={{ width: `${roomPercentage}%` }}
                   />
                 </div>
@@ -158,10 +157,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
                   <span className="text-xs font-bold text-indigo-600">{totalBuildingsUsed} / {currentSub.maxBuildings}</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full mt-2.5 overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      buildingPercentage > 85 ? 'bg-amber-500' : 'bg-indigo-600'
-                    }`}
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${buildingPercentage > 85 ? 'bg-amber-500' : 'bg-indigo-600'
+                      }`}
                     style={{ width: `${buildingPercentage}%` }}
                   />
                 </div>
@@ -189,13 +187,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
+
               {/* Starter Tier */}
-              <div className={`p-4 rounded-xl border transition-all ${
-                currentSub.planTier === 'starter' 
-                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20' 
+              <div className={`p-4 rounded-xl border transition-all ${currentSub.planTier === 'starter'
+                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20'
                   : 'border-slate-200 hover:border-slate-300 bg-white'
-              }`}>
+                }`}>
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-900 text-sm">Starter</h4>
                   {currentSub.planTier === 'starter' && (
@@ -250,11 +247,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
               </div>
 
               {/* Growth Pro Tier */}
-              <div className={`p-4 rounded-xl border relative transition-all ${
-                currentSub.planTier === 'growth' 
-                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20 shadow-md shadow-indigo-100' 
+              <div className={`p-4 rounded-xl border relative transition-all ${currentSub.planTier === 'growth'
+                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20 shadow-md shadow-indigo-100'
                   : 'border-indigo-300 hover:border-indigo-500 bg-white'
-              }`}>
+                }`}>
                 <div className="absolute -top-2.5 right-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded-full shadow-xs tracking-wider">
                   Most Popular
                 </div>
@@ -317,11 +313,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, on
               </div>
 
               {/* Enterprise Tier */}
-              <div className={`p-4 rounded-xl border transition-all ${
-                currentSub.planTier === 'enterprise' 
-                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20' 
+              <div className={`p-4 rounded-xl border transition-all ${currentSub.planTier === 'enterprise'
+                  ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-600/20'
                   : 'border-slate-200 hover:border-slate-300 bg-white'
-              }`}>
+                }`}>
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-900 text-sm">Enterprise Co-Living</h4>
                   {currentSub.planTier === 'enterprise' && (
