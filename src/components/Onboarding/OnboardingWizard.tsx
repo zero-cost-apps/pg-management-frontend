@@ -123,85 +123,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
           description: 'Affordable 3-sharing room'
         }
       ];
-
-      const newBuilding = addBuilding({
-        name: buildingName.trim() || 'Main PG Property',
-        code: buildingCode.trim().toUpperCase() || 'PG1',
-        address: address.trim() || 'City Center',
-        city: city.trim() || 'Bengaluru',
-        totalFloors: Number(totalFloors),
-        electricityRatePerUnit: Number(electricityRate),
-        billingDueDay: Number(billingDueDay),
-        electricityBillingCycle: 'monthly',
-        managerName: currentUser?.fullName || 'Property Owner',
-        managerPhone: ownerPhone,
-        upiId: upiId.trim() || undefined,
-        amenities: selectedAmenities,
-        roomTypes: defaultRoomTypes,
-        rulesNotes: 'Standard PG house rules: Visitors permitted until 9 PM, silent hours after 11 PM.'
-      });
-
-      // 2. Generate room units across floors
-      const createdRooms: Room[] = [];
-      for (let floorNum = 1; floorNum <= totalFloors; floorNum++) {
-        for (let roomIdx = 1; roomIdx <= roomsPerFloor; roomIdx++) {
-          const roomNumber = `${floorNum}0${roomIdx}`;
-          const isFirstRoom = floorNum === 1 && roomIdx === 1;
-
-          const created = addRoom({
-            buildingId: newBuilding.id,
-            roomNumber,
-            floor: floorNum,
-            roomTypeId: 'rt_double',
-            capacity: defaultRoomCapacity,
-            baseRent: defaultBaseRent,
-            status: 'vacant',
-            hasAttachedBathroom: true,
-            hasAirConditioner: selectedAmenities.includes('Air Conditioner (AC)'),
-            hasBalcony: roomIdx % 2 === 0,
-            meterNumber: `MTR-${buildingCode}-${roomNumber}`,
-            lastMeterReading: 100 * floorNum + roomIdx * 10,
-            lastMeterReadingDate: new Date().toISOString().split('T')[0]
-          });
-          createdRooms.push(created);
-        }
-      }
-
-      // 3. Handle Initial Tenant Intake if requested
-      if (intakeMode === 'custom' || intakeMode === 'sample') {
-        const targetRoom = createdRooms[0];
-        if (targetRoom) {
-          const tenantName = intakeMode === 'custom' ? firstTenantName : 'Aditya Nair';
-          const tenantPhone = intakeMode === 'custom' ? firstTenantPhone : '9876500111';
-          const tenantEmail = intakeMode === 'custom' ? firstTenantEmail : 'aditya.nair@example.com';
-          const tenantRent = intakeMode === 'custom' ? firstTenantRent : defaultBaseRent;
-          const tenantDeposit = intakeMode === 'custom' ? firstTenantDeposit : defaultBaseRent * 2;
-
-          addTenant({
-            buildingId: newBuilding.id,
-            roomId: targetRoom.id,
-            fullName: tenantName,
-            phone: tenantPhone,
-            email: tenantEmail,
-            gender: businessType === 'womens_pg' ? 'female' : 'male',
-            occupation: 'Software Engineer',
-            workOrCollegeName: 'Tech Mahindra',
-            permanentAddress: 'Plot 42, Sector 12, Indiranagar',
-            emergencyContactName: 'Rajesh Nair',
-            emergencyContactRelation: 'Father',
-            emergencyContactPhone: '9876599900',
-            checkInDate: new Date().toISOString().split('T')[0],
-            status: 'active',
-            monthlyRent: tenantRent,
-            securityDeposit: tenantDeposit,
-            depositStatus: 'paid',
-            depositPaidAmount: tenantDeposit,
-            documents: []
-          });
-        }
-      }
-
-      // 4. Update auth state
+      // Execute atomic onboarding on the backend
       const onboardingData: OnboardingData = {
         businessName,
         businessType,
@@ -211,22 +133,25 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         buildingName,
         buildingCode,
         address,
-        billingDueDay,
-        electricityRatePerUnit: electricityRate,
-        totalFloors,
-        roomsPerFloor,
+        billingDueDay: Number(billingDueDay),
+        electricityRatePerUnit: Number(electricityRate),
+        totalFloors: Number(totalFloors),
+        roomsPerFloor: Number(roomsPerFloor),
         roomCapacity: defaultRoomCapacity,
         defaultBaseRent,
         amenities: selectedAmenities,
-        addInitialTenant: intakeMode !== 'empty'
+        addInitialTenant: intakeMode !== 'empty',
+        seedSampleData: intakeMode === 'sample',
+        initialTenantName: firstTenantName,
+        initialTenantPhone: firstTenantPhone,
+        initialTenantEmail: firstTenantEmail,
+        initialTenantRent: firstTenantRent,
+        initialTenantDeposit: firstTenantDeposit,
       };
 
       await completeOnboarding(onboardingData);
 
-      // 5. Select the new building as the primary view
-      setSelectedBuildingId(newBuilding.id);
-
-      // 6. Confetti effect
+      // Confetti celebration
       confetti({
         particleCount: 80,
         spread: 70,

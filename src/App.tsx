@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './api/queries';
 import { PGProvider, usePG } from './context/PGContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthScreen } from './components/Auth/AuthScreen';
@@ -148,11 +150,13 @@ const AppRoot: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <PGProvider>
-        <AppRoot />
-      </PGProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <PGProvider>
+          <AppRoot />
+        </PGProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

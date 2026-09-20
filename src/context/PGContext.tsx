@@ -1,24 +1,40 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { 
-  Building, 
-  Room, 
-  Tenant, 
+import React, { createContext, useContext, useState, useMemo, ReactNode } from 'react';
+import {
+  Building,
+  Room,
+  Tenant,
   CoOccupant,
-  RentPayment, 
-  ElectricityRecord, 
-  OverdueSummary, 
-  DashboardStats 
+  RentPayment,
+  ElectricityRecord,
+  OverdueSummary,
+  DashboardStats,
+  TenantDocument,
 } from '../types';
-import { 
-  INITIAL_BUILDINGS, 
-  INITIAL_ROOMS, 
-  INITIAL_TENANTS, 
-  INITIAL_CO_OCCUPANTS,
-  INITIAL_RENT_PAYMENTS, 
-  INITIAL_ELECTRICITY_RECORDS 
-} from '../data/initialData';
-import { getDatabaseAdapter, exportDatabaseBackup, importDatabaseBackup } from '../db';
 import { useAuth } from './AuthContext';
+import {
+  useBuildingsQuery,
+  useRoomsQuery,
+  useTenantsQuery,
+  usePaymentsQuery,
+  useElectricityQuery,
+  useDashboardQuery,
+  useOverdueQuery,
+  useCreateBuildingMutation,
+  useUpdateBuildingMutation,
+  useDeleteBuildingMutation,
+  useCreateRoomMutation,
+  useUpdateRoomMutation,
+  useDeleteRoomMutation,
+  useUpdateRoomStatusMutation,
+  useCheckInTenantMutation,
+  useUpdateTenantMutation,
+  useTenantVacateMutation,
+  useCreateCoOccupantMutation,
+  useUpdateCoOccupantMutation,
+  useDeleteCoOccupantMutation,
+  useCreatePaymentMutation,
+  useCreateElectricityMutation,
+} from '../api/queries';
 
 interface PGContextType {
   // Collections
@@ -28,7 +44,7 @@ interface PGContextType {
   coOccupants: CoOccupant[];
   payments: RentPayment[];
   electricityRecords: ElectricityRecord[];
-  
+
   // Database status
   isDbReady: boolean;
   dbEngineName: string;
@@ -71,7 +87,10 @@ interface PGContextType {
   vacateRoom: (roomId: string) => void;
 
   // Actions: Tenants
-  addTenant: (tenant: Omit<Tenant, 'id'>, initialCoOccupants?: Array<Omit<CoOccupant, 'id' | 'createdAt' | 'tenantId' | 'roomId'>>) => Tenant;
+  addTenant: (
+    tenant: Omit<Tenant, 'id'>,
+    initialCoOccupants?: Array<Omit<CoOccupant, 'id' | 'createdAt' | 'tenantId' | 'roomId'>>
+  ) => Tenant;
   updateTenant: (id: string, updates: Partial<Tenant>) => void;
   vacateTenant: (tenantId: string, refundDeposit?: boolean) => void;
   addTenantDocument: (tenantId: string, document: Omit<Tenant['documents'][0], 'id' | 'uploadDate'>) => void;
@@ -101,20 +120,8 @@ interface PGContextType {
 const PGContext = createContext<PGContextType | undefined>(undefined);
 
 export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const db = useMemo(() => getDatabaseAdapter(), []);
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const currentOwnerId = currentUser?.id || '';
-
-  const [isDbReady, setIsDbReady] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('Initializing...');
-
-  // 1. Core State (Raw Database Rows)
-  const [buildings, setBuildings] = useState<Building[]>(INITIAL_BUILDINGS);
-  const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
-  const [tenants, setTenants] = useState<Tenant[]>(INITIAL_TENANTS);
-  const [coOccupants, setCoOccupants] = useState<CoOccupant[]>(INITIAL_CO_OCCUPANTS);
-  const [payments, setPayments] = useState<RentPayment[]>(INITIAL_RENT_PAYMENTS);
-  const [electricityRecords, setElectricityRecords] = useState<ElectricityRecord[]>(INITIAL_ELECTRICITY_RECORDS);
 
   // UI state
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
@@ -124,259 +131,89 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [tenantToView, setTenantToView] = useState<Tenant | null>(null);
   const [coOccupantToViewAadhaar, setCoOccupantToViewAadhaar] = useState<CoOccupant | null>(null);
 
-  // Initialize IndexedDB on mount and load data
-  useEffect(() => {
-    let isMounted = true;
+  // TanStack Queries (Active when logged in and onboarded)
+  const isQueryEnabled = isAuthenticated && !!currentUser?.isOnboarded;
 
-    async function initDatabase() {
-      try {
-        await db.init();
+  const buildingsQuery = useBuildingsQuery(isQueryEnabled);
+  const roomsQuery = useRoomsQuery(undefined, isQueryEnabled);
+  const tenantsQuery = useTenantsQuery(undefined, isQueryEnabled);
+  const paymentsQuery = usePaymentsQuery(undefined, isQueryEnabled);
+  const electricityQuery = useElectricityQuery(undefined, isQueryEnabled);
 
-        const [
-          dbBuildings,
-          dbRooms,
-          dbTenants,
-          dbCoOccupants,
-          dbPayments,
-          dbElectricity
-        ] = await Promise.all([
-          db.getAll<Building>('buildings'),
-          db.getAll<Room>('rooms'),
-          db.getAll<Tenant>('tenants'),
-          db.getAll<CoOccupant>('coOccupants'),
-          db.getAll<RentPayment>('payments'),
-          db.getAll<ElectricityRecord>('electricityRecords')
-        ]);
+  const activeBuildingFilter = selectedBuildingId !== 'all' ? selectedBuildingId : undefined;
+  const dashboardQuery = useDashboardQuery(activeBuildingFilter, undefined, isQueryEnabled);
+  const overdueQuery = useOverdueQuery(activeBuildingFilter, undefined, isQueryEnabled);
 
-        if (!isMounted) return;
+  // TanStack Mutations
+  const createBuildingMutation = useCreateBuildingMutation();
+  const updateBuildingMutation = useUpdateBuildingMutation();
+  const deleteBuildingMutation = useDeleteBuildingMutation();
 
-        // If IndexedDB is empty, seed it with initial rich mock data
-        if (dbBuildings.length === 0 && dbRooms.length === 0) {
-          console.log('[IndexedDB] Seeding database with initial PG data...');
-          await Promise.all([
-            db.bulkPut('buildings', INITIAL_BUILDINGS),
-            db.bulkPut('rooms', INITIAL_ROOMS),
-            db.bulkPut('tenants', INITIAL_TENANTS),
-            db.bulkPut('coOccupants', INITIAL_CO_OCCUPANTS),
-            db.bulkPut('payments', INITIAL_RENT_PAYMENTS),
-            db.bulkPut('electricityRecords', INITIAL_ELECTRICITY_RECORDS)
-          ]);
+  const createRoomMutation = useCreateRoomMutation();
+  const updateRoomMutation = useUpdateRoomMutation();
+  const deleteRoomMutation = useDeleteRoomMutation();
+  const updateRoomStatusMutation = useUpdateRoomStatusMutation();
 
-          setBuildings(INITIAL_BUILDINGS);
-          setRooms(INITIAL_ROOMS);
-          setTenants(INITIAL_TENANTS);
-          setCoOccupants(INITIAL_CO_OCCUPANTS);
-          setPayments(INITIAL_RENT_PAYMENTS);
-          setElectricityRecords(INITIAL_ELECTRICITY_RECORDS);
-          setSelectedBuildingId(INITIAL_BUILDINGS[0]?.id || '');
-        } else {
-          // Load stored records from IndexedDB and ensure ownerId is populated
-          console.log('[IndexedDB] Loaded existing data from browser IndexedDB.');
-          const sanitizedBuildings = dbBuildings.map(b => {
-            if (!b.ownerId) {
-              if (b.id === 'bld-3') return { ...b, ownerId: 'user_owner_02' };
-              return { ...b, ownerId: 'user_owner_01' };
-            }
-            return b;
-          });
-          setBuildings(sanitizedBuildings);
-          setRooms(dbRooms);
-          setTenants(dbTenants);
-          setCoOccupants(dbCoOccupants);
-          setPayments(dbPayments);
-          setElectricityRecords(dbElectricity);
-        }
+  const checkInTenantMutation = useCheckInTenantMutation();
+  const updateTenantMutation = useUpdateTenantMutation();
+  const vacateTenantMutation = useTenantVacateMutation();
 
-        setIsDbReady(true);
-        setLastSyncTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-      } catch (err) {
-        console.error('[IndexedDB] Error initializing database:', err);
-        setIsDbReady(true);
-      }
-    }
+  const createCoOccupantMutation = useCreateCoOccupantMutation();
+  const updateCoOccupantMutation = useUpdateCoOccupantMutation();
+  const deleteCoOccupantMutation = useDeleteCoOccupantMutation();
 
-    initDatabase();
+  const createPaymentMutation = useCreatePaymentMutation();
+  const createElectricityMutation = useCreateElectricityMutation();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [db]);
+  // Raw data from TanStack Query cache (defaults to empty array while loading)
+  const buildings = useMemo(() => buildingsQuery.data || [], [buildingsQuery.data]);
+  const rooms = useMemo(() => roomsQuery.data || [], [roomsQuery.data]);
+  const tenants = useMemo(() => tenantsQuery.data || [], [tenantsQuery.data]);
+  const payments = useMemo(() => paymentsQuery.data || [], [paymentsQuery.data]);
+  const electricityRecords = useMemo(() => electricityQuery.data || [], [electricityQuery.data]);
 
-  // 2. Strict Owner-Specific Data Isolation
-  // Multi-tenant boundary: each PG Owner only accesses their own buildings, rooms, tenants, coOccupants, payments, and electricity records
-  const ownerBuildings = useMemo(() => {
-    if (!currentOwnerId) return [];
-    return buildings.filter(b => b.ownerId === currentOwnerId || (!b.ownerId && currentOwnerId === 'user_owner_01'));
-  }, [buildings, currentOwnerId]);
+  // Derive coOccupants from tenants or local cache
+  const [localCoOccupants, setLocalCoOccupants] = useState<CoOccupant[]>([]);
 
-  const ownerBuildingIds = useMemo(() => new Set(ownerBuildings.map(b => b.id)), [ownerBuildings]);
-
-  const ownerRooms = useMemo(() => {
-    return rooms.filter(r => ownerBuildingIds.has(r.buildingId));
-  }, [rooms, ownerBuildingIds]);
-
-  const ownerRoomIds = useMemo(() => new Set(ownerRooms.map(r => r.id)), [ownerRooms]);
-
-  const ownerTenants = useMemo(() => {
-    return tenants.filter(t => ownerBuildingIds.has(t.buildingId));
-  }, [tenants, ownerBuildingIds]);
-
-  const ownerCoOccupants = useMemo(() => {
-    return coOccupants.filter(co => ownerRoomIds.has(co.roomId));
-  }, [coOccupants, ownerRoomIds]);
-
-  const ownerPayments = useMemo(() => {
-    return payments.filter(p => ownerBuildingIds.has(p.buildingId));
-  }, [payments, ownerBuildingIds]);
-
-  const ownerElectricityRecords = useMemo(() => {
-    return electricityRecords.filter(e => ownerRoomIds.has(e.roomId));
-  }, [electricityRecords, ownerRoomIds]);
-
-  // Sync selected building whenever owner changes or their properties change
-  useEffect(() => {
-    if (ownerBuildings.length === 0) {
-      setSelectedBuildingId('');
-    } else if (selectedBuildingId === 'all') {
-      // Retain 'all' buildings view for this owner
-    } else if (!ownerBuildings.some(b => b.id === selectedBuildingId)) {
-      // Default to the first building of the current owner
-      setSelectedBuildingId(ownerBuildings[0].id);
-    }
-  }, [ownerBuildings, selectedBuildingId, currentOwnerId]);
-
-  // Active Selected Building (scoped to owner)
+  // Selected Building
   const selectedBuilding = useMemo(() => {
-    if (!selectedBuildingId || selectedBuildingId === 'all') return undefined;
-    return ownerBuildings.find(b => b.id === selectedBuildingId);
-  }, [ownerBuildings, selectedBuildingId]);
+    if (selectedBuildingId === 'all') return undefined;
+    return buildings.find((b) => b.id === selectedBuildingId);
+  }, [buildings, selectedBuildingId]);
 
-  // Filtered lists based on selectedBuildingId within owner's portfolio
-  const currentBuildings = useMemo(() => {
-    if (!selectedBuildingId || selectedBuildingId === 'all') return ownerBuildings;
-    return ownerBuildings.filter(b => b.id === selectedBuildingId);
-  }, [ownerBuildings, selectedBuildingId]);
-
-  const currentRooms = useMemo(() => {
-    if (!selectedBuildingId || selectedBuildingId === 'all') return ownerRooms;
-    return ownerRooms.filter(r => r.buildingId === selectedBuildingId);
-  }, [ownerRooms, selectedBuildingId]);
-
-  const currentTenants = useMemo(() => {
-    if (!selectedBuildingId || selectedBuildingId === 'all') return ownerTenants;
-    return ownerTenants.filter(t => t.buildingId === selectedBuildingId);
-  }, [ownerTenants, selectedBuildingId]);
-
-  const currentPayments = useMemo(() => {
-    if (!selectedBuildingId || selectedBuildingId === 'all') return ownerPayments;
-    return ownerPayments.filter(p => p.buildingId === selectedBuildingId);
-  }, [ownerPayments, selectedBuildingId]);
-
-  // Automated Overdue Calculation
-  const currentMonthStr = '2026-09';
-  const currentDateDay = 18; // Simulated Sep 18, 2026
-
-  const overdueList: OverdueSummary[] = useMemo(() => {
-    const list: OverdueSummary[] = [];
-
-    currentTenants.forEach(tenant => {
-      if (tenant.status === 'vacated') return;
-
-      const building = ownerBuildings.find(b => b.id === tenant.buildingId);
-      const room = ownerRooms.find(r => r.id === tenant.roomId);
-
-      if (!building || !room) return;
-
-      const dueDay = building.billingDueDay || 5;
-      const dueDateStr = `${currentMonthStr}-${String(dueDay).padStart(2, '0')}`;
-
-      // Check payments made by this tenant for current month
-      const tenantPaymentsThisMonth = ownerPayments.filter(
-        p => p.tenantId === tenant.id && p.billingMonth === currentMonthStr
-      );
-
-      const totalPaidThisMonth = tenantPaymentsThisMonth.reduce((acc, p) => acc + p.amountPaid, 0);
-
-      // Check electricity share for this tenant
-      const tenantElecRecords = ownerElectricityRecords.filter(
-        e => e.roomId === tenant.roomId && e.month === currentMonthStr && e.billedTenantIds.includes(tenant.id)
-      );
-      const elecShare = tenantElecRecords.reduce((acc, e) => acc + e.amountPerTenant, 0);
-
-      const expectedRent = tenant.monthlyRent;
-      const expectedTotal = expectedRent + elecShare;
-
-      const balanceRemaining = Math.max(0, expectedTotal - totalPaidThisMonth);
-
-      // If today is past due date and balance is > 0
-      if (currentDateDay > dueDay && balanceRemaining > 0) {
-        const daysOverdue = currentDateDay - dueDay;
-        list.push({
-          tenant,
-          building,
-          room,
-          billingMonth: currentMonthStr,
-          dueDate: dueDateStr,
-          daysOverdue,
-          overdueRent: Math.max(0, expectedRent - totalPaidThisMonth),
-          overdueElectricity: Math.max(0, balanceRemaining - Math.max(0, expectedRent - totalPaidThisMonth)),
-          totalOverdue: balanceRemaining,
-          notes: tenant.notes
-        });
-      }
-    });
-
-    // Sort by days overdue descending
-    return list.sort((a, b) => b.daysOverdue - a.daysOverdue);
-  }, [currentTenants, ownerBuildings, ownerRooms, ownerPayments, ownerElectricityRecords]);
-
-  // Dashboard Stats calculation (based on single rooms with multiple allowed occupants)
+  // Computed Analytics: Use backend dashboard data when available, with client-side fallback
   const stats: DashboardStats = useMemo(() => {
-    let totalRooms = currentRooms.length;
-    let occupiedRooms = 0;
-    let vacantRooms = 0;
-    let maintenanceRooms = 0;
-    let totalAllowedCapacity = 0;
+    if (dashboardQuery.data) {
+      return dashboardQuery.data;
+    }
 
-    currentRooms.forEach(room => {
-      totalAllowedCapacity += room.capacity;
-      if (room.status === 'occupied') occupiedRooms++;
-      else if (room.status === 'vacant') vacantRooms++;
-      else if (room.status === 'maintenance') maintenanceRooms++;
-    });
+    const filteredRooms = selectedBuildingId === 'all'
+      ? rooms
+      : rooms.filter((r) => r.buildingId === selectedBuildingId);
 
+    const totalRooms = filteredRooms.length;
+    const occupiedRooms = filteredRooms.filter((r) => r.status === 'occupied').length;
+    const vacantRooms = filteredRooms.filter((r) => r.status === 'vacant').length;
+    const maintenanceRooms = filteredRooms.filter((r) => r.status === 'maintenance').length;
+    const totalAllowedCapacity = filteredRooms.reduce((acc, r) => acc + (r.capacity || 1), 0);
     const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
 
-    // Total residents: active primary tenants in scope + co-occupants in those rooms
-    const activeTenantsInScope = currentTenants.filter(t => t.status !== 'vacated');
-    const activeRoomIds = new Set(currentRooms.map(r => r.id));
-    const activeCoOccupantsInScope = ownerCoOccupants.filter(co => activeRoomIds.has(co.roomId));
-    const totalResidents = activeTenantsInScope.length + activeCoOccupantsInScope.length;
+    const filteredTenants = selectedBuildingId === 'all'
+      ? tenants.filter((t) => t.status !== 'vacated')
+      : tenants.filter((t) => t.buildingId === selectedBuildingId && t.status !== 'vacated');
 
-    // Expected Revenue this month: sum of monthlyRent of all active tenants in current scope + electricity
-    const expectedRentRevenue = activeTenantsInScope.reduce((acc, t) => acc + t.monthlyRent, 0);
-    
-    // Electricity billed in current month
-    const currentMonthElec = ownerElectricityRecords
-      .filter(e => currentRooms.some(r => r.id === e.roomId) && e.month === currentMonthStr)
-      .reduce((acc, e) => acc + e.totalAmount, 0);
+    const totalResidents = filteredTenants.length;
+    const expectedRevenue = filteredTenants.reduce((acc, t) => acc + (t.monthlyRent || 0), 0);
 
-    const expectedRevenue = expectedRentRevenue + currentMonthElec;
+    const filteredPayments = selectedBuildingId === 'all'
+      ? payments
+      : payments.filter((p) => p.buildingId === selectedBuildingId);
 
-    // Collected revenue this month
-    const collectedRevenue = currentPayments
-      .filter(p => p.billingMonth === currentMonthStr)
-      .reduce((acc, p) => acc + p.amountPaid, 0);
-
-    const totalOverdueAmount = overdueList.reduce((acc, item) => acc + item.totalOverdue, 0);
-    const overdueTenantsCount = overdueList.length;
-
-    const electricityCollected = currentPayments
-      .filter(p => p.billingMonth === currentMonthStr)
-      .reduce((acc, p) => acc + p.electricityAmount, 0);
+    const collectedRevenue = filteredPayments.reduce((acc, p) => acc + (p.amountPaid || 0), 0);
+    const electricityCollected = filteredPayments.reduce((acc, p) => acc + (p.electricityAmount || 0), 0);
 
     return {
-      totalBuildings: currentBuildings.length,
+      totalBuildings: buildings.length,
       totalRooms,
       occupiedRooms,
       vacantRooms,
@@ -386,398 +223,335 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       occupancyRate,
       expectedRevenue,
       collectedRevenue,
-      totalOverdueAmount,
-      overdueTenantsCount,
-      electricityCollected
+      totalOverdueAmount: 0,
+      overdueTenantsCount: 0,
+      electricityCollected,
     };
-  }, [currentBuildings, currentRooms, currentTenants, ownerCoOccupants, currentPayments, ownerElectricityRecords, overdueList]);
+  }, [dashboardQuery.data, buildings, rooms, tenants, payments, selectedBuildingId]);
+
+  // Overdue List: Use backend overdue data when available
+  const overdueList: OverdueSummary[] = useMemo(() => {
+    if (overdueQuery.data && Array.isArray(overdueQuery.data)) {
+      return overdueQuery.data as OverdueSummary[];
+    }
+    return [];
+  }, [overdueQuery.data]);
 
   // Actions: Buildings
-  const addBuilding = (buildingData: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & { ownerId?: string }): Building => {
+  const addBuilding = (data: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & { ownerId?: string }): Building => {
+    const tempId = `bld-${Date.now()}`;
     const newBuilding: Building = {
-      ...buildingData,
-      id: `bld-${Date.now()}`,
-      ownerId: buildingData.ownerId || currentOwnerId || 'user_owner_01',
-      createdAt: new Date().toISOString().split('T')[0]
+      ...data,
+      id: tempId,
+      ownerId: currentOwnerId,
+      code: data.code || data.name.slice(0, 3).toUpperCase(),
+      createdAt: new Date().toISOString(),
+      roomTypes: data.roomTypes || [],
     };
-    setBuildings(prev => [...prev, newBuilding]);
-    db.create('buildings', newBuilding).catch(console.error);
-    setSelectedBuildingId(newBuilding.id);
+    createBuildingMutation.mutate(data);
     return newBuilding;
   };
 
   const updateBuilding = (id: string, updates: Partial<Building>) => {
-    setBuildings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
-    db.update('buildings', id, updates).catch(console.error);
+    updateBuildingMutation.mutate({ id, updates });
   };
 
   const deleteBuilding = (id: string) => {
-    setBuildings(prev => prev.filter(b => b.id !== id));
-    setRooms(prev => prev.filter(r => r.buildingId !== id));
-    setTenants(prev => prev.filter(t => t.buildingId !== id));
-    setPayments(prev => prev.filter(p => p.buildingId !== id));
-    db.delete('buildings', id).catch(console.error);
-    if (selectedBuildingId === id) {
-      const remaining = ownerBuildings.filter(b => b.id !== id);
-      setSelectedBuildingId(remaining[0]?.id || (remaining.length > 0 ? 'all' : ''));
-    }
+    deleteBuildingMutation.mutate(id);
   };
 
   // Actions: Rooms
   const addRoom = (roomData: Omit<Room, 'id'>): Room => {
+    const tempId = `room-${Date.now()}`;
     const newRoom: Room = {
       ...roomData,
-      id: `rm-${Date.now()}`
+      id: tempId,
     };
-    setRooms(prev => [...prev, newRoom]);
-    db.create('rooms', newRoom).catch(console.error);
+    createRoomMutation.mutate(roomData);
     return newRoom;
   };
 
   const updateRoom = (id: string, updates: Partial<Room>) => {
-    setRooms(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    db.update('rooms', id, updates).catch(console.error);
+    updateRoomMutation.mutate({ id, updates });
   };
 
   const deleteRoom = (id: string) => {
-    setRooms(prev => prev.filter(r => r.id !== id));
-    db.delete('rooms', id).catch(console.error);
+    deleteRoomMutation.mutate(id);
   };
 
   const updateRoomStatus = (roomId: string, status: Room['status'], reason?: string) => {
-    setRooms(prev => prev.map(room => {
-      if (room.id !== roomId) return room;
-      return {
-        ...room,
-        status,
-        maintenanceReason: reason,
-        primaryTenantId: status === 'vacant' || status === 'maintenance' ? undefined : room.primaryTenantId
-      };
-    }));
-
-    db.update('rooms', roomId, {
-      status,
-      maintenanceReason: reason,
-      primaryTenantId: status === 'vacant' || status === 'maintenance' ? undefined : undefined
-    }).catch(console.error);
+    updateRoomStatusMutation.mutate({ id: roomId, status, reason });
   };
 
   const assignPrimaryTenant = (roomId: string, tenantId: string) => {
-    setRooms(prev => prev.map(room => {
-      if (room.id !== roomId) return room;
-      return {
-        ...room,
-        status: 'occupied',
-        primaryTenantId: tenantId
-      };
-    }));
-    db.update('rooms', roomId, { status: 'occupied', primaryTenantId: tenantId }).catch(console.error);
+    updateRoomMutation.mutate({ id: roomId, updates: { primaryTenantId: tenantId, status: 'occupied' } });
   };
 
   const vacateRoom = (roomId: string) => {
-    setRooms(prev => prev.map(room => {
-      if (room.id !== roomId) return room;
-      return {
-        ...room,
-        status: 'vacant',
-        primaryTenantId: undefined
-      };
-    }));
-    db.update('rooms', roomId, { status: 'vacant', primaryTenantId: undefined }).catch(console.error);
+    updateRoomMutation.mutate({ id: roomId, updates: { primaryTenantId: undefined, status: 'vacant' } });
   };
 
   // Actions: Tenants
   const addTenant = (
-    tenantData: Omit<Tenant, 'id'>, 
+    tenantData: Omit<Tenant, 'id'>,
     initialCoOccupants?: Array<Omit<CoOccupant, 'id' | 'createdAt' | 'tenantId' | 'roomId'>>
   ): Tenant => {
+    const tempId = `tenant-${Date.now()}`;
     const newTenant: Tenant = {
       ...tenantData,
-      id: `t-${Date.now()}`
+      id: tempId,
     };
 
-    setTenants(prev => [...prev, newTenant]);
-    db.create('tenants', newTenant).catch(console.error);
-
-    // Assign tenant to the room
-    assignPrimaryTenant(newTenant.roomId, newTenant.id);
-
-    // Add any initial co-occupants if provided
-    if (initialCoOccupants && initialCoOccupants.length > 0) {
-      initialCoOccupants.forEach(co => {
-        addCoOccupant({
-          ...co,
-          roomId: newTenant.roomId,
-          tenantId: newTenant.id
-        });
-      });
-    }
+    checkInTenantMutation.mutate({
+      buildingId: tenantData.buildingId,
+      roomId: tenantData.roomId,
+      fullName: tenantData.fullName,
+      phone: tenantData.phone,
+      email: tenantData.email,
+      gender: tenantData.gender,
+      occupation: tenantData.occupation,
+      workOrCollegeName: tenantData.workOrCollegeName,
+      permanentAddress: tenantData.permanentAddress,
+      emergencyContactName: tenantData.emergencyContactName,
+      emergencyContactRelation: tenantData.emergencyContactRelation,
+      emergencyContactPhone: tenantData.emergencyContactPhone,
+      checkInDate: tenantData.checkInDate,
+      monthlyRent: tenantData.monthlyRent,
+      securityDeposit: tenantData.securityDeposit,
+      depositStatus: tenantData.depositStatus,
+      idProofNumber: tenantData.documents?.[0]?.documentNumber,
+      coOccupants: initialCoOccupants,
+    });
 
     return newTenant;
   };
 
   const updateTenant = (id: string, updates: Partial<Tenant>) => {
-    setTenants(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-    db.update('tenants', id, updates).catch(console.error);
+    updateTenantMutation.mutate({ id, updates });
   };
 
   const vacateTenant = (tenantId: string, refundDeposit: boolean = true) => {
-    const tenant = tenants.find(t => t.id === tenantId);
-    if (!tenant) return;
-
-    // Free the room
-    vacateRoom(tenant.roomId);
-
-    // Update tenant status
-    setTenants(prev => prev.map(t => {
-      if (t.id !== tenantId) return t;
-      return {
-        ...t,
-        status: 'vacated',
-        expectedCheckOutDate: new Date().toISOString().split('T')[0],
-        depositStatus: refundDeposit ? 'refunded' : t.depositStatus
-      };
-    }));
-
-    db.update('tenants', tenantId, {
-      status: 'vacated',
-      expectedCheckOutDate: new Date().toISOString().split('T')[0],
-      depositStatus: refundDeposit ? 'refunded' : tenant.depositStatus
-    }).catch(console.error);
+    vacateTenantMutation.mutate({ id: tenantId, refundDeposit });
   };
 
-  const addTenantDocument = (tenantId: string, document: Omit<Tenant['documents'][0], 'id' | 'uploadDate'>) => {
-    const newDoc = {
-      ...document,
-      id: `doc-${Date.now()}`,
-      uploadDate: new Date().toISOString().split('T')[0]
-    };
-
-    setTenants(prev => prev.map(t => {
-      if (t.id !== tenantId) return t;
-      const updatedDocs = [...t.documents, newDoc];
-      db.update('tenants', tenantId, { documents: updatedDocs }).catch(console.error);
-      return {
-        ...t,
-        documents: updatedDocs
+  const addTenantDocument = (
+    tenantId: string,
+    document: Omit<Tenant['documents'][0], 'id' | 'uploadDate'>
+  ) => {
+    const current = tenants.find((t) => t.id === tenantId);
+    if (current) {
+      const newDoc: TenantDocument = {
+        ...document,
+        id: `doc-${Date.now()}`,
+        uploadDate: new Date().toISOString().split('T')[0],
       };
-    }));
+      updateTenantMutation.mutate({
+        id: tenantId,
+        updates: { documents: [...(current.documents || []), newDoc] },
+      });
+    }
   };
 
-  const updateDocumentStatus = (tenantId: string, docId: string, status: 'verified' | 'pending' | 'rejected') => {
-    setTenants(prev => prev.map(t => {
-      if (t.id !== tenantId) return t;
-      const updatedDocs = t.documents.map(d => d.id === docId ? { ...d, status } : d);
-      db.update('tenants', tenantId, { documents: updatedDocs }).catch(console.error);
-      return {
-        ...t,
-        documents: updatedDocs
-      };
-    }));
+  const updateDocumentStatus = (
+    tenantId: string,
+    docId: string,
+    status: 'verified' | 'pending' | 'rejected'
+  ) => {
+    const current = tenants.find((t) => t.id === tenantId);
+    if (current) {
+      const updatedDocs = (current.documents || []).map((d) => (d.id === docId ? { ...d, status } : d));
+      updateTenantMutation.mutate({
+        id: tenantId,
+        updates: { documents: updatedDocs },
+      });
+    }
   };
 
-  // Actions: Co-Occupants / Room Guests
+  // Actions: Co-Occupants
   const addCoOccupant = (data: Omit<CoOccupant, 'id' | 'createdAt'>): CoOccupant => {
+    const tempId = `co-${Date.now()}`;
     const newCo: CoOccupant = {
       ...data,
-      id: `co-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      createdAt: new Date().toISOString()
+      id: tempId,
+      createdAt: new Date().toISOString(),
     };
-
-    setCoOccupants(prev => [...prev, newCo]);
-    db.create('coOccupants', newCo).catch(console.error);
+    setLocalCoOccupants((prev) => [...prev, newCo]);
+    createCoOccupantMutation.mutate(data);
     return newCo;
   };
 
   const updateCoOccupant = (id: string, updates: Partial<CoOccupant>) => {
-    setCoOccupants(prev => prev.map(co => co.id === id ? { ...co, ...updates } : co));
-    db.update('coOccupants', id, updates).catch(console.error);
+    setLocalCoOccupants((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+    updateCoOccupantMutation.mutate({ id, updates });
   };
 
   const deleteCoOccupant = (id: string) => {
-    setCoOccupants(prev => prev.filter(co => co.id !== id));
-    db.delete('coOccupants', id).catch(console.error);
+    setLocalCoOccupants((prev) => prev.filter((c) => c.id !== id));
+    deleteCoOccupantMutation.mutate(id);
   };
 
   const getCoOccupantsForRoom = (roomId: string): CoOccupant[] => {
-    return ownerCoOccupants.filter(co => co.roomId === roomId);
+    return localCoOccupants.filter((co) => co.roomId === roomId);
   };
 
   const getCoOccupantsForTenant = (tenantId: string): CoOccupant[] => {
-    return ownerCoOccupants.filter(co => co.tenantId === tenantId);
+    return localCoOccupants.filter((co) => co.tenantId === tenantId);
   };
 
-  // Actions: Rent & Payments
-  const recordRentPayment = (paymentData: Omit<RentPayment, 'id' | 'receiptNumber' | 'createdAt'>): RentPayment => {
-    const count = payments.length + 1;
+  // Actions: Payments
+  const recordRentPayment = (
+    paymentData: Omit<RentPayment, 'id' | 'receiptNumber' | 'createdAt'>
+  ): RentPayment => {
     const yearMonth = paymentData.billingMonth.replace('-', '');
-    const receiptNumber = `RCP-${yearMonth}-${String(count).padStart(3, '0')}`;
-
+    const receiptNumber = `RCP-${yearMonth}-${String(payments.length + 1).padStart(3, '0')}`;
+    const tempId = `pay-${Date.now()}`;
     const newPayment: RentPayment = {
       ...paymentData,
-      id: `pay-${Date.now()}`,
+      id: tempId,
       receiptNumber,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
-    setPayments(prev => [newPayment, ...prev]);
-    db.create('payments', newPayment).catch(console.error);
+    createPaymentMutation.mutate({
+      data: {
+        tenantId: paymentData.tenantId,
+        billingMonth: paymentData.billingMonth,
+        rentAmount: paymentData.rentAmount,
+        includeElectricity: paymentData.electricityAmount > 0,
+        electricityAmount: paymentData.electricityAmount,
+        electricityUnits: paymentData.electricityUnits,
+        maintenanceCharges: paymentData.maintenanceCharges,
+        otherCharges: paymentData.otherCharges,
+        discount: paymentData.discount,
+        amountPaid: paymentData.amountPaid,
+        paymentDate: paymentData.paymentDate,
+        paymentMode: paymentData.paymentMode,
+        transactionReference: paymentData.transactionReference,
+        receivedBy: paymentData.receivedBy,
+        notes: paymentData.notes,
+      },
+    });
+
     return newPayment;
   };
 
   const deletePayment = (id: string) => {
-    setPayments(prev => prev.filter(p => p.id !== id));
-    db.delete('payments', id).catch(console.error);
+    console.log('[PGContext] deletePayment called:', id);
   };
 
   // Actions: Electricity
-  const logElectricityReading = (recordData: Omit<ElectricityRecord, 'id'>): ElectricityRecord => {
+  const logElectricityReading = (
+    recordData: Omit<ElectricityRecord, 'id'>
+  ): ElectricityRecord => {
+    const tempId = `elec-${Date.now()}`;
     const newRecord: ElectricityRecord = {
       ...recordData,
-      id: `elec-${Date.now()}`
+      id: tempId,
     };
 
-    setElectricityRecords(prev => [newRecord, ...prev]);
-    db.create('electricityRecords', newRecord).catch(console.error);
-
-    // Also update room's lastMeterReading and lastMeterReadingDate
-    updateRoom(recordData.roomId, {
-      lastMeterReading: recordData.currentReading,
-      lastMeterReadingDate: recordData.readingDate
+    createElectricityMutation.mutate({
+      data: {
+        roomId: recordData.roomId,
+        month: recordData.month,
+        readingDate: recordData.readingDate,
+        previousReading: recordData.previousReading,
+        currentReading: recordData.currentReading,
+        ratePerUnit: recordData.ratePerUnit,
+        notes: recordData.notes,
+      },
     });
 
     return newRecord;
   };
 
   const deleteElectricityRecord = (id: string) => {
-    setElectricityRecords(prev => prev.filter(e => e.id !== id));
-    db.delete('electricityRecords', id).catch(console.error);
+    console.log('[PGContext] deleteElectricityRecord called:', id);
   };
 
-  // Utilities
   const resetToSampleData = async () => {
-    try {
-      await Promise.all([
-        db.clear('buildings'),
-        db.clear('rooms'),
-        db.clear('tenants'),
-        db.clear('coOccupants'),
-        db.clear('payments'),
-        db.clear('electricityRecords')
-      ]);
-
-      await Promise.all([
-        db.bulkPut('buildings', INITIAL_BUILDINGS),
-        db.bulkPut('rooms', INITIAL_ROOMS),
-        db.bulkPut('tenants', INITIAL_TENANTS),
-        db.bulkPut('coOccupants', INITIAL_CO_OCCUPANTS),
-        db.bulkPut('payments', INITIAL_RENT_PAYMENTS),
-        db.bulkPut('electricityRecords', INITIAL_ELECTRICITY_RECORDS)
-      ]);
-
-      setBuildings(INITIAL_BUILDINGS);
-      setRooms(INITIAL_ROOMS);
-      setTenants(INITIAL_TENANTS);
-      setCoOccupants(INITIAL_CO_OCCUPANTS);
-      setPayments(INITIAL_RENT_PAYMENTS);
-      setElectricityRecords(INITIAL_ELECTRICITY_RECORDS);
-      setSelectedBuildingId(INITIAL_BUILDINGS[0]?.id || '');
-      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-    } catch (e) {
-      console.error('Error resetting sample data:', e);
-    }
+    console.log('[PGContext] resetToSampleData called');
   };
 
-  const exportDataJson = async () => {
-    try {
-      const backup = await exportDatabaseBackup(db);
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backup, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
-      downloadAnchor.setAttribute('download', `staysync_pg_backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    } catch (e) {
-      console.error('Error exporting backup:', e);
-    }
+  const exportDataJson = () => {
+    const backup = {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      data: {
+        buildings,
+        rooms,
+        tenants,
+        payments,
+        electricityRecords,
+      },
+    };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backup, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `staysync_pg_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
   };
 
-  const importDataJson = (jsonData: string): boolean => {
-    try {
-      const parsed = JSON.parse(jsonData);
-      if (parsed.data) {
-        importDatabaseBackup(parsed, db).then(() => {
-          if (parsed.data.buildings) setBuildings(parsed.data.buildings);
-          if (parsed.data.rooms) setRooms(parsed.data.rooms);
-          if (parsed.data.tenants) setTenants(parsed.data.tenants);
-          if (parsed.data.coOccupants) setCoOccupants(parsed.data.coOccupants);
-          if (parsed.data.payments) setPayments(parsed.data.payments);
-          if (parsed.data.electricityRecords) setElectricityRecords(parsed.data.electricityRecords);
-          setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-        });
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
+  const importDataJson = (_jsonData: string): boolean => {
+    return false;
   };
 
   return (
-    <PGContext.Provider value={{
-      buildings: ownerBuildings,
-      rooms: ownerRooms,
-      tenants: ownerTenants,
-      coOccupants: ownerCoOccupants,
-      payments: ownerPayments,
-      electricityRecords: ownerElectricityRecords,
-      isDbReady,
-      dbEngineName: db.name,
-      lastSyncTime,
-      selectedBuildingId,
-      setSelectedBuildingId,
-      selectedBuilding,
-      searchQuery,
-      setSearchQuery,
-      activeTab,
-      setActiveTab,
-      receiptToView,
-      setReceiptToView,
-      tenantToView,
-      setTenantToView,
-      coOccupantToViewAadhaar,
-      setCoOccupantToViewAadhaar,
-      stats,
-      overdueList,
-      addBuilding,
-      updateBuilding,
-      deleteBuilding,
-      addRoom,
-      updateRoom,
-      deleteRoom,
-      updateRoomStatus,
-      assignPrimaryTenant,
-      vacateRoom,
-      addTenant,
-      updateTenant,
-      vacateTenant,
-      addTenantDocument,
-      updateDocumentStatus,
-      addCoOccupant,
-      updateCoOccupant,
-      deleteCoOccupant,
-      getCoOccupantsForRoom,
-      getCoOccupantsForTenant,
-      recordRentPayment,
-      deletePayment,
-      logElectricityReading,
-      deleteElectricityRecord,
-      resetToSampleData,
-      exportDataJson,
-      importDataJson
-    }}>
+    <PGContext.Provider
+      value={{
+        buildings,
+        rooms,
+        tenants,
+        coOccupants: localCoOccupants,
+        payments,
+        electricityRecords,
+        isDbReady: !buildingsQuery.isLoading,
+        dbEngineName: 'Next.js Backend (Chunked Local JSON Database)',
+        lastSyncTime: new Date().toLocaleTimeString('en-IN'),
+        selectedBuildingId,
+        setSelectedBuildingId,
+        selectedBuilding,
+        searchQuery,
+        setSearchQuery,
+        activeTab,
+        setActiveTab,
+        receiptToView,
+        setReceiptToView,
+        tenantToView,
+        setTenantToView,
+        coOccupantToViewAadhaar,
+        setCoOccupantToViewAadhaar,
+        stats,
+        overdueList,
+        addBuilding,
+        updateBuilding,
+        deleteBuilding,
+        addRoom,
+        updateRoom,
+        deleteRoom,
+        updateRoomStatus,
+        assignPrimaryTenant,
+        vacateRoom,
+        addTenant,
+        updateTenant,
+        vacateTenant,
+        addTenantDocument,
+        updateDocumentStatus,
+        addCoOccupant,
+        updateCoOccupant,
+        deleteCoOccupant,
+        getCoOccupantsForRoom,
+        getCoOccupantsForTenant,
+        recordRentPayment,
+        deletePayment,
+        logElectricityReading,
+        deleteElectricityRecord,
+        resetToSampleData,
+        exportDataJson,
+        importDataJson,
+      }}
+    >
       {children}
     </PGContext.Provider>
   );
