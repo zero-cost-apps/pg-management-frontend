@@ -13,6 +13,7 @@ import {
   RoomStatus,
   TenantStatus,
   PaymentStatus,
+  FloorConfig,
 } from '../types';
 
 const rawEnvUrl = (import.meta.env.VITE_API_URL || '/v1').trim().replace(/\/+$/, '');
@@ -274,17 +275,50 @@ export const api = {
 
     get: (id: string) => request<{ building: Building }>(`/buildings/${id}`),
 
-    create: (data: Partial<Building>) =>
+    create: (data: Partial<Building> & {
+      generateRooms?: boolean;
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }) =>
       request<{ building: Building }>('/buildings', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
 
-    update: (id: string, data: Partial<Building>) =>
-      request<{ building: Building }>(`/buildings/${id}`, {
+    update: (
+      id: string,
+      data: Partial<Building> & {
+        generateRooms?: boolean;
+        defaultRoomTypeId?: string;
+        hasAirConditioner?: boolean;
+        hasAttachedBathroom?: boolean;
+        hasBalcony?: boolean;
+      }
+    ) =>
+      request<{ building: Building; generatedRoomsCount?: number }>(`/buildings/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+
+    generateRooms: (
+      id: string,
+      options?: {
+        floorConfigs?: FloorConfig[];
+        defaultRoomTypeId?: string;
+        hasAirConditioner?: boolean;
+        hasAttachedBathroom?: boolean;
+        hasBalcony?: boolean;
+      }
+    ) =>
+      request<{ generatedCount: number; rooms: Room[]; totalRoomsNow: number }>(
+        `/buildings/${id}/generate-rooms`,
+        {
+          method: 'POST',
+          body: JSON.stringify(options || {}),
+        }
+      ),
 
     delete: (id: string) =>
       request<{ deleted: boolean; id: string }>(`/buildings/${id}`, {

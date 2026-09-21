@@ -10,6 +10,7 @@ import {
   RoomStatus,
   TenantStatus,
   PaymentStatus,
+  FloorConfig,
 } from '../types';
 
 export const queryClient = new QueryClient({
@@ -38,9 +39,18 @@ export function useBuildingsQuery(enabled = true) {
 export function useCreateBuildingMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Building>) => api.buildings.create(data),
+    mutationFn: (
+      data: Partial<Building> & {
+        generateRooms?: boolean;
+        defaultRoomTypeId?: string;
+        hasAirConditioner?: boolean;
+        hasAttachedBathroom?: boolean;
+        hasBalcony?: boolean;
+      }
+    ) => api.buildings.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['buildings'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -49,9 +59,45 @@ export function useCreateBuildingMutation() {
 export function useUpdateBuildingMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Building> }) =>
-      api.buildings.update(id, updates),
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<Building> & {
+        generateRooms?: boolean;
+        defaultRoomTypeId?: string;
+        hasAirConditioner?: boolean;
+        hasAttachedBathroom?: boolean;
+        hasBalcony?: boolean;
+      };
+    }) => api.buildings.update(id, updates),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['buildings'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useGenerateRoomsMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      options,
+    }: {
+      id: string;
+      options?: {
+        floorConfigs?: FloorConfig[];
+        defaultRoomTypeId?: string;
+        hasAirConditioner?: boolean;
+        hasAttachedBathroom?: boolean;
+        hasBalcony?: boolean;
+      };
+    }) => api.buildings.generateRooms(id, options),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rooms'] });
       qc.invalidateQueries({ queryKey: ['buildings'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },

@@ -17,7 +17,9 @@ import {
   Layers, 
   Filter, 
   Wrench,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 
 export const RoomGrid: React.FC = () => {
@@ -29,8 +31,26 @@ export const RoomGrid: React.FC = () => {
     coOccupantToViewAadhaar,
     setCoOccupantToViewAadhaar,
     stats,
-    coOccupants
+    coOccupants,
+    generateRoomsForBuilding
   } = usePG();
+
+  const [isGeneratingRooms, setIsGeneratingRooms] = useState(false);
+
+  const currentBuilding = buildings.find(b => b.id === selectedBuildingId);
+  const currentBuildingRooms = selectedBuildingId !== 'all' ? rooms.filter(r => r.buildingId === selectedBuildingId) : rooms;
+  const plannedRoomsCount = currentBuilding?.floorConfigs?.reduce((sum, fc) => sum + fc.roomCount, 0) || 0;
+  const hasMissingRooms = Boolean(currentBuilding && plannedRoomsCount > currentBuildingRooms.length);
+
+  const handleQuickGenerateRooms = async () => {
+    if (!currentBuilding) return;
+    setIsGeneratingRooms(true);
+    try {
+      await generateRoomsForBuilding(currentBuilding.id);
+    } finally {
+      setIsGeneratingRooms(false);
+    }
+  };
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,6 +146,22 @@ export const RoomGrid: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {hasMissingRooms && (
+            <button
+              type="button"
+              disabled={isGeneratingRooms}
+              onClick={handleQuickGenerateRooms}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors shadow-2xs"
+              title="Generate remaining rooms defined in floor configuration"
+            >
+              {isGeneratingRooms ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              )}
+              Generate Rooms ({currentBuildingRooms.length}/{plannedRoomsCount})
+            </button>
+          )}
           <button
             onClick={handleOpenAddRoom}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
@@ -264,6 +300,39 @@ export const RoomGrid: React.FC = () => {
               />
             );
           })}
+        </div>
+      ) : selectedBuildingId !== 'all' && plannedRoomsCount > 0 && currentBuildingRooms.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-indigo-300 p-12 text-center bg-indigo-50/20">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 border border-indigo-100 shadow-xs">
+            <Sparkles className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            {currentBuilding?.name} has {plannedRoomsCount} rooms in floor configuration
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            This building's floor structure defines {currentBuilding?.floorConfigs?.length} floor levels with {plannedRoomsCount} total rooms planned. Generate all units in one click.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            <button
+              type="button"
+              disabled={isGeneratingRooms}
+              onClick={handleQuickGenerateRooms}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-xs"
+            >
+              {isGeneratingRooms ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Generate {plannedRoomsCount} Rooms from Floor Config
+            </button>
+            <button
+              onClick={handleOpenAddRoom}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Single Room
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">

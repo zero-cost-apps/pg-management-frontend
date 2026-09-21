@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePG } from '../../context/PGContext';
 import { Building, RoomTypeConfig, FloorConfig } from '../../types';
 import { getFloorLabel } from '../../utils/floor';
-import { X, Building2, Check, Plus, Trash2, Zap, DollarSign, Layers } from 'lucide-react';
+import { X, Building2, Check, Plus, Trash2, Zap, DollarSign, Layers, Sparkles, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface BuildingModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
   onClose,
   buildingToEdit
 }) => {
-  const { addBuilding, updateBuilding } = usePG();
+  const { addBuilding, updateBuilding, rooms, generateRoomsForBuilding } = usePG();
 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -37,6 +37,19 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
     { floor: 2, roomCount: 4, name: '2nd Floor' },
   ]);
 
+  // Room Generation State
+  const [generateRooms, setGenerateRooms] = useState<boolean>(true);
+  const [defaultRoomTypeId, setDefaultRoomTypeId] = useState<string>('');
+  const [autoAttachedBath, setAutoAttachedBath] = useState<boolean>(true);
+  const [autoAc, setAutoAc] = useState<boolean>(false);
+  const [isGeneratingRooms, setIsGeneratingRooms] = useState<boolean>(false);
+  const [generationFeedback, setGenerationFeedback] = useState<string | null>(null);
+
+  // Existing rooms for this building (when editing)
+  const existingRooms = buildingToEdit ? rooms.filter(r => r.buildingId === buildingToEdit.id) : [];
+  const existingRoomNumbers = new Set(existingRooms.map(r => r.roomNumber.toUpperCase().trim()));
+  const totalConfiguredRooms = floorConfigs.reduce((sum, fc) => sum + fc.roomCount, 0);
+
   // Room Types Configuration
   const [roomTypes, setRoomTypes] = useState<RoomTypeConfig[]>([
     { id: 'rt-single', name: 'Private Single Studio', capacity: 1, baseRent: 16000 },
@@ -57,7 +70,10 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       setManagerPhone(buildingToEdit.managerPhone);
       setUpiId(buildingToEdit.upiId || '');
       setRulesNotes(buildingToEdit.rulesNotes || '');
-      setRoomTypes(buildingToEdit.roomTypes || []);
+      setGenerationFeedback(null);
+      const bldRooms = rooms.filter(r => r.buildingId === buildingToEdit.id);
+      setGenerateRooms(bldRooms.length === 0);
+      setDefaultRoomTypeId(buildingToEdit.roomTypes?.[0]?.id || 'rt-single');
       if (buildingToEdit.floorConfigs && buildingToEdit.floorConfigs.length > 0) {
         setFloorConfigs(buildingToEdit.floorConfigs);
         setHasGroundFloor(buildingToEdit.floorConfigs.some(f => f.floor === 0));
@@ -82,6 +98,9 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       setManagerPhone('');
       setUpiId('');
       setRulesNotes('');
+      setGenerateRooms(true);
+      setGenerationFeedback(null);
+      setDefaultRoomTypeId('rt-double');
       setRoomTypes([
         { id: 'rt-single', name: 'Private Single', capacity: 1, baseRent: 15000 },
         { id: 'rt-double', name: 'Double Sharing', capacity: 2, baseRent: 10000 },
@@ -94,7 +113,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       ]);
       setHasGroundFloor(true);
     }
-  }, [buildingToEdit, isOpen]);
+  }, [buildingToEdit, isOpen, rooms]);
 
   if (!isOpen) return null;
 
@@ -150,6 +169,29 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
     setRoomTypes(roomTypes.filter((_, i) => i !== index));
   };
 
+  const handleGenerateRoomsDirect = async () => {
+    if (!buildingToEdit) return;
+    setIsGeneratingRooms(true);
+    setGenerationFeedback(null);
+    try {
+      const res = await generateRoomsForBuilding(buildingToEdit.id, {
+        floorConfigs,
+        defaultRoomTypeId: defaultRoomTypeId || roomTypes[0]?.id,
+        hasAirConditioner: autoAc,
+        hasAttachedBathroom: autoAttachedBath,
+      });
+      if (res.success) {
+        setGenerationFeedback(`Successfully generated ${res.generatedCount} rooms according to floor configuration!`);
+      } else {
+        setGenerationFeedback('Failed to generate rooms. Please check backend connection.');
+      }
+    } catch (err) {
+      setGenerationFeedback('Error generating rooms.');
+    } finally {
+      setIsGeneratingRooms(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -158,6 +200,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
     }
 
     const finalTotalFloors = floorConfigs.length > 0 ? Math.max(...floorConfigs.map(f => f.floor)) : totalFloors;
+    const selectedRtId = defaultRoomTypeId || roomTypes[0]?.id;
 
     if (buildingToEdit) {
       updateBuilding(buildingToEdit.id, {
@@ -173,7 +216,11 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         managerPhone: managerPhone.trim(),
         upiId: upiId.trim() || undefined,
         rulesNotes: rulesNotes.trim() || undefined,
-        roomTypes
+        roomTypes,
+        generateRooms,
+        defaultRoomTypeId: selectedRtId,
+        hasAirConditioner: autoAc,
+        hasAttachedBathroom: autoAttachedBath,
       });
     } else {
       addBuilding({
@@ -191,7 +238,11 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         upiId: upiId.trim() || undefined,
         rulesNotes: rulesNotes.trim() || undefined,
         amenities: ['Wi-Fi', 'Daily Meals', 'Housekeeping', 'CCTV Security'],
-        roomTypes
+        roomTypes,
+        generateRooms,
+        defaultRoomTypeId: selectedRtId,
+        hasAirConditioner: autoAc,
+        hasAttachedBathroom: autoAttachedBath,
       });
     }
 
@@ -201,7 +252,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
       <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70">
           <div className="flex items-center gap-2.5">
@@ -222,7 +273,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-          
+
           {/* General Property Info */}
           <div className="space-y-3">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -340,14 +391,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
                   Configure custom room counts for each floor level
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={handleAddUpperFloor}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-semibold rounded-lg transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Upper Floor
-              </button>
+
             </div>
 
             {/* Ground Floor Toggle Card */}
@@ -377,19 +421,17 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
               {floorConfigs.map((fc) => (
                 <div
                   key={fc.floor}
-                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                    fc.floor === 0
-                      ? 'bg-emerald-50/40 border-emerald-200/80'
-                      : 'bg-white border-slate-200'
-                  }`}
+                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${fc.floor === 0
+                    ? 'bg-emerald-50/40 border-emerald-200/80'
+                    : 'bg-white border-slate-200'
+                    }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <span
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                        fc.floor === 0
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-indigo-100 text-indigo-700'
-                      }`}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${fc.floor === 0
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-indigo-100 text-indigo-700'
+                        }`}
                     >
                       {fc.floor === 0 ? 'G' : fc.floor}
                     </span>
@@ -444,6 +486,14 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
                   </div>
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={handleAddUpperFloor}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-semibold rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Upper Floor
+              </button>
             </div>
 
             {/* Summary Strip */}
@@ -453,8 +503,177 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
                 Floor Configuration Summary:
               </span>
               <span className="font-bold font-mono">
-                {floorConfigs.length} Levels • {floorConfigs.reduce((sum, fc) => sum + fc.roomCount, 0)} Total Rooms
+                {floorConfigs.length} Levels • {totalConfiguredRooms} Total Rooms
               </span>
+            </div>
+
+            {/* Room Generation from Floor Config Card */}
+            <div className="p-4 rounded-xl border border-indigo-200/80 bg-indigo-50/40 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">
+                      Auto-Generate Rooms from Floor Configuration
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Automatically creates room units (Ground Floor: G01, G02... Upper Floors: 101, 201...)
+                    </p>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={generateRooms}
+                    onChange={(e) => setGenerateRooms(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              {/* Status & Immediate Sync for existing building */}
+              {buildingToEdit && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-white border border-slate-200 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 font-medium">Database Status:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {existingRooms.length} of {totalConfiguredRooms} rooms registered
+                    </span>
+                  </div>
+                  {totalConfiguredRooms > existingRooms.length && (
+                    <button
+                      type="button"
+                      disabled={isGeneratingRooms}
+                      onClick={handleGenerateRoomsDirect}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg transition-colors shadow-2xs"
+                    >
+                      {isGeneratingRooms ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                      Generate {totalConfiguredRooms - existingRooms.length} Missing Rooms Now
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {generationFeedback && (
+                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{generationFeedback}</span>
+                </div>
+              )}
+
+              {/* Live Preview of Rooms to be Generated */}
+              {generateRooms && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-2 bg-white p-3 rounded-lg border border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                      Room Units Preview ({totalConfiguredRooms} rooms planned)
+                    </span>
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                      {floorConfigs.map((fc) => {
+                        const floorLabel = fc.floor === 0 ? 'Ground Floor' : fc.name || `Floor ${fc.floor}`;
+                        const roomNums: string[] = [];
+                        for (let idx = 1; idx <= fc.roomCount; idx++) {
+                          roomNums.push(
+                            fc.floor === 0
+                              ? `G${String(idx).padStart(2, '0')}`
+                              : `${fc.floor}${String(idx).padStart(2, '0')}`
+                          );
+                        }
+                        return (
+                          <div key={fc.floor} className="flex flex-wrap items-center gap-1.5 text-xs py-1 border-b border-slate-100 last:border-b-0">
+                            <span className="w-28 shrink-0 font-semibold text-slate-700 text-[11px]">
+                              {floorLabel} ({fc.roomCount}):
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {roomNums.length === 0 ? (
+                                <span className="text-[10px] text-slate-400 italic">No rooms on this floor</span>
+                              ) : (
+                                roomNums.map((rn) => {
+                                  const exists = existingRoomNumbers.has(rn.toUpperCase());
+                                  return (
+                                    <span
+                                      key={rn}
+                                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold flex items-center gap-1 ${
+                                        exists
+                                          ? 'bg-slate-100 text-slate-500 border border-slate-200 line-through'
+                                          : fc.floor === 0
+                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                          : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                      }`}
+                                      title={exists ? `${rn} already exists in database` : `Will generate ${rn}`}
+                                    >
+                                      {rn}
+                                      {exists && <span className="text-[9px] no-underline">✓</span>}
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Room Type & Amenity Config for Generated Rooms */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3 rounded-lg border border-slate-200">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Default Room Classification
+                      </label>
+                      <select
+                        value={defaultRoomTypeId || (roomTypes[0]?.id || '')}
+                        onChange={(e) => setDefaultRoomTypeId(e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded-md bg-white font-medium text-slate-800 focus:outline-none"
+                      >
+                        {roomTypes.map((rt) => (
+                          <option key={rt.id} value={rt.id}>
+                            {rt.name} (Cap {rt.capacity} • ₹{rt.baseRent.toLocaleString('en-IN')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Attached Bathroom
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          checked={autoAttachedBath}
+                          onChange={(e) => setAutoAttachedBath(e.target.checked)}
+                          className="rounded text-indigo-600"
+                        />
+                        <span>Included in all</span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Air Conditioner
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          checked={autoAc}
+                          onChange={(e) => setAutoAc(e.target.checked)}
+                          className="rounded text-indigo-600"
+                        />
+                        <span>Equip AC units</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

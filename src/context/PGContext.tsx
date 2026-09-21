@@ -9,6 +9,7 @@ import {
   OverdueSummary,
   DashboardStats,
   TenantDocument,
+  FloorConfig,
 } from '../types';
 import { useAuth } from './AuthContext';
 import {
@@ -22,6 +23,7 @@ import {
   useCreateBuildingMutation,
   useUpdateBuildingMutation,
   useDeleteBuildingMutation,
+  useGenerateRoomsMutation,
   useCreateRoomMutation,
   useUpdateRoomMutation,
   useDeleteRoomMutation,
@@ -80,8 +82,36 @@ interface PGContextType {
   overdueList: OverdueSummary[];
 
   // Actions: Buildings
-  addBuilding: (building: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & { ownerId?: string }) => Building;
-  updateBuilding: (id: string, updates: Partial<Building>) => void;
+  addBuilding: (
+    building: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & {
+      ownerId?: string;
+      generateRooms?: boolean;
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ) => Building;
+  updateBuilding: (
+    id: string,
+    updates: Partial<Building> & {
+      generateRooms?: boolean;
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ) => void;
+  generateRoomsForBuilding: (
+    buildingId: string,
+    options?: {
+      floorConfigs?: FloorConfig[];
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ) => Promise<{ success: boolean; generatedCount: number }>;
   deleteBuilding: (id: string) => void;
 
   // Actions: Rooms
@@ -256,7 +286,16 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, [overdueQuery.data]);
 
   // Actions: Buildings
-  const addBuilding = (data: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & { ownerId?: string }): Building => {
+  const addBuilding = (
+    data: Omit<Building, 'id' | 'createdAt' | 'ownerId'> & {
+      ownerId?: string;
+      generateRooms?: boolean;
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ): Building => {
     const tempId = `bld-${Date.now()}`;
     const newBuilding: Building = {
       ...data,
@@ -270,8 +309,36 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     return newBuilding;
   };
 
-  const updateBuilding = (id: string, updates: Partial<Building>) => {
+  const updateBuilding = (
+    id: string,
+    updates: Partial<Building> & {
+      generateRooms?: boolean;
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ) => {
     updateBuildingMutation.mutate({ id, updates });
+  };
+
+  const generateRoomsForBuilding = async (
+    buildingId: string,
+    options?: {
+      floorConfigs?: FloorConfig[];
+      defaultRoomTypeId?: string;
+      hasAirConditioner?: boolean;
+      hasAttachedBathroom?: boolean;
+      hasBalcony?: boolean;
+    }
+  ): Promise<{ success: boolean; generatedCount: number }> => {
+    try {
+      const res = await generateRoomsMutation.mutateAsync({ id: buildingId, options });
+      return { success: true, generatedCount: res.generatedCount };
+    } catch (err) {
+      console.error('Failed to generate rooms:', err);
+      return { success: false, generatedCount: 0 };
+    }
   };
 
   const deleteBuilding = (id: string) => {
@@ -550,6 +617,7 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         overdueList,
         addBuilding,
         updateBuilding,
+        generateRoomsForBuilding,
         deleteBuilding,
         addRoom,
         updateRoom,
