@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePG } from '../../context/PGContext';
+import { getFloorLabel } from '../../utils/floor';
 import { 
   X, 
   Zap, 
@@ -196,7 +197,7 @@ export const MeterReadingModal: React.FC<MeterReadingModalProps> = ({
               >
                 {availableRooms.map(r => (
                   <option key={r.id} value={r.id}>
-                    Room {r.roomNumber} (Floor {r.floor} • Capacity {r.capacity} pax)
+                    Room {r.roomNumber} ({getFloorLabel(r.floor)} • Capacity {r.capacity} pax)
                   </option>
                 ))}
               </select>

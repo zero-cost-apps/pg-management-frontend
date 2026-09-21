@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePG } from '../../context/PGContext';
+import { getFloorLabel } from '../../utils/floor';
 import { 
   X, 
   UserCheck, 
@@ -136,7 +137,7 @@ export const RoomCheckInModal: React.FC<RoomCheckInModalProps> = ({
               <h2 className="text-base font-bold text-slate-900">Check-in Tenant to Room {targetRoom.roomNumber}</h2>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                 <Building2 className="w-3.5 h-3.5" />
-                {targetBuilding.name} • Floor {targetRoom.floor} • Allowed Capacity: {targetRoom.capacity} People
+                {targetBuilding.name} • {getFloorLabel(targetRoom.floor)} • Allowed Capacity: {targetRoom.capacity} People
               </p>
             </div>
           </div>

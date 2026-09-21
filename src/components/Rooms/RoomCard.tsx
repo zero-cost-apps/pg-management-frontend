@@ -1,5 +1,6 @@
 import React from 'react';
 import { Room, Building } from '../../types';
+import { getFloorLabel } from '../../utils/floor';
 import { usePG } from '../../context/PGContext';
 import { 
   Home, 
@@ -97,7 +98,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               {getStatusBadge()}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Floor {room.floor} • {building.name}
+              {getFloorLabel(room.floor)} • {building.name}
             </p>
           </div>
 

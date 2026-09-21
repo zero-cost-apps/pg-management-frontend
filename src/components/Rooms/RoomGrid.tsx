@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePG } from '../../context/PGContext';
 import { Room, Building } from '../../types';
+import { getFloorLabel } from '../../utils/floor';
 import { RoomCard } from './RoomCard';
 import { RoomModal } from './RoomModal';
 import { RoomCheckInModal } from './RoomCheckInModal';
@@ -238,7 +239,7 @@ export const RoomGrid: React.FC = () => {
               >
                 <option value="all">All Floors</option>
                 {availableFloors.map(fl => (
-                  <option key={fl} value={fl}>Floor {fl}</option>
+                  <option key={fl} value={fl}>{getFloorLabel(fl)}</option>
                 ))}
               </select>
             )}
