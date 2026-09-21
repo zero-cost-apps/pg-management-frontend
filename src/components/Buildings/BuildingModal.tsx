@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { usePG } from '../../context/PGContext';
-import { Building, RoomTypeConfig } from '../../types';
-import { X, Building2, Check, Plus, Trash2, Zap, DollarSign } from 'lucide-react';
+import { Building, RoomTypeConfig, FloorConfig } from '../../types';
+import { getFloorLabel } from '../../utils/floor';
+import { X, Building2, Check, Plus, Trash2, Zap, DollarSign, Layers } from 'lucide-react';
 
 interface BuildingModalProps {
   isOpen: boolean;
@@ -28,6 +29,14 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
   const [upiId, setUpiId] = useState('');
   const [rulesNotes, setRulesNotes] = useState('');
 
+  // Floor-Wise Room Configuration State
+  const [hasGroundFloor, setHasGroundFloor] = useState<boolean>(true);
+  const [floorConfigs, setFloorConfigs] = useState<FloorConfig[]>([
+    { floor: 0, roomCount: 3, name: 'Ground Floor' },
+    { floor: 1, roomCount: 4, name: '1st Floor' },
+    { floor: 2, roomCount: 4, name: '2nd Floor' },
+  ]);
+
   // Room Types Configuration
   const [roomTypes, setRoomTypes] = useState<RoomTypeConfig[]>([
     { id: 'rt-single', name: 'Private Single Studio', capacity: 1, baseRent: 16000 },
@@ -49,12 +58,24 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       setUpiId(buildingToEdit.upiId || '');
       setRulesNotes(buildingToEdit.rulesNotes || '');
       setRoomTypes(buildingToEdit.roomTypes || []);
+      if (buildingToEdit.floorConfigs && buildingToEdit.floorConfigs.length > 0) {
+        setFloorConfigs(buildingToEdit.floorConfigs);
+        setHasGroundFloor(buildingToEdit.floorConfigs.some(f => f.floor === 0));
+      } else {
+        const floors: FloorConfig[] = [];
+        floors.push({ floor: 0, roomCount: 3, name: 'Ground Floor' });
+        for (let f = 1; f <= (buildingToEdit.totalFloors || 2); f++) {
+          floors.push({ floor: f, roomCount: 3, name: getFloorLabel(f) });
+        }
+        setFloorConfigs(floors);
+        setHasGroundFloor(true);
+      }
     } else {
       setName('');
       setCode('');
       setAddress('');
       setCity('Bengaluru, Karnataka');
-      setTotalFloors(3);
+      setTotalFloors(2);
       setElectricityRatePerUnit(11.0);
       setBillingDueDay(5);
       setManagerName('');
@@ -66,10 +87,46 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         { id: 'rt-double', name: 'Double Sharing', capacity: 2, baseRent: 10000 },
         { id: 'rt-triple', name: 'Triple Sharing', capacity: 3, baseRent: 8000 }
       ]);
+      setFloorConfigs([
+        { floor: 0, roomCount: 3, name: 'Ground Floor' },
+        { floor: 1, roomCount: 4, name: '1st Floor' },
+        { floor: 2, roomCount: 4, name: '2nd Floor' },
+      ]);
+      setHasGroundFloor(true);
     }
   }, [buildingToEdit, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleToggleGroundFloor = () => {
+    if (hasGroundFloor) {
+      setFloorConfigs(prev => prev.filter(f => f.floor !== 0));
+      setHasGroundFloor(false);
+    } else {
+      setFloorConfigs(prev => [{ floor: 0, roomCount: 3, name: 'Ground Floor' }, ...prev.filter(f => f.floor !== 0)]);
+      setHasGroundFloor(true);
+    }
+  };
+
+  const handleUpdateFloorRooms = (floorNum: number, roomCount: number) => {
+    const validCount = Math.max(0, Math.min(50, roomCount));
+    setFloorConfigs(prev => prev.map(fc => fc.floor === floorNum ? { ...fc, roomCount: validCount } : fc));
+  };
+
+  const handleAddUpperFloor = () => {
+    const maxFloor = floorConfigs.length > 0 ? Math.max(...floorConfigs.map(f => f.floor)) : 0;
+    const nextFloor = maxFloor + 1;
+    setFloorConfigs(prev => [...prev, { floor: nextFloor, roomCount: 4, name: getFloorLabel(nextFloor) }]);
+  };
+
+  const handleRemoveFloor = (floorNum: number) => {
+    if (floorConfigs.length <= 1) {
+      alert('A building must have at least one floor configured.');
+      return;
+    }
+    setFloorConfigs(prev => prev.filter(f => f.floor !== floorNum));
+    if (floorNum === 0) setHasGroundFloor(false);
+  };
 
   const handleAddRoomType = () => {
     const newRt: RoomTypeConfig = {
@@ -100,13 +157,16 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       return;
     }
 
+    const finalTotalFloors = floorConfigs.length > 0 ? Math.max(...floorConfigs.map(f => f.floor)) : totalFloors;
+
     if (buildingToEdit) {
       updateBuilding(buildingToEdit.id, {
         name: name.trim(),
         code: code.trim() || name.substring(0, 3).toUpperCase(),
         address: address.trim(),
         city: city.trim(),
-        totalFloors,
+        totalFloors: finalTotalFloors,
+        floorConfigs,
         electricityRatePerUnit,
         billingDueDay,
         managerName: managerName.trim(),
@@ -121,7 +181,8 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         code: code.trim() || name.substring(0, 3).toUpperCase(),
         address: address.trim(),
         city: city.trim(),
-        totalFloors,
+        totalFloors: finalTotalFloors,
+        floorConfigs,
         electricityRatePerUnit,
         billingDueDay,
         electricityBillingCycle: 'monthly',
@@ -259,25 +320,149 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Total Floors
+                  Active Floors
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={totalFloors}
-                  onChange={e => setTotalFloors(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
-                />
+                <div className="px-3 py-1.5 text-xs font-mono font-bold text-indigo-700 bg-indigo-50/60 border border-indigo-200 rounded-lg">
+                  {floorConfigs.length} Floor Levels
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Building Specific Room Types & Tariffs */}
+          {/* 3. Floor-Wise Room Configuration */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  3. Floor Structure & Room Count (Floor-Wise)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Configure custom room counts for each floor level
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddUpperFloor}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 font-semibold rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Upper Floor
+              </button>
+            </div>
+
+            {/* Ground Floor Toggle Card */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-mono font-bold text-xs">
+                  G
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">Ground Floor (Floor 0)</span>
+                  <span className="text-[11px] text-slate-500">Enable if property includes rooms on the ground level</span>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasGroundFloor}
+                  onChange={handleToggleGroundFloor}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {/* Floor Cards List */}
+            <div className="space-y-2">
+              {floorConfigs.map((fc) => (
+                <div
+                  key={fc.floor}
+                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                    fc.floor === 0
+                      ? 'bg-emerald-50/40 border-emerald-200/80'
+                      : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                        fc.floor === 0
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-indigo-100 text-indigo-700'
+                      }`}
+                    >
+                      {fc.floor === 0 ? 'G' : fc.floor}
+                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        {fc.name || (fc.floor === 0 ? 'Ground Floor' : `Floor ${fc.floor}`)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Floor index: {fc.floor}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Room Count Controls */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500 font-medium">Rooms:</span>
+                    <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateFloorRooms(fc.floor, fc.roomCount - 1)}
+                        className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={fc.roomCount}
+                        onChange={(e) => handleUpdateFloorRooms(fc.floor, Number(e.target.value))}
+                        className="w-14 text-center py-1 text-xs font-mono font-bold text-slate-900 border-x border-slate-300 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateFloorRooms(fc.floor, fc.roomCount + 1)}
+                        className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {fc.floor > 0 && floorConfigs.filter(f => f.floor > 0).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFloor(fc.floor)}
+                        title="Remove floor"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors ml-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary Strip */}
+            <div className="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs text-indigo-900">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                Floor Configuration Summary:
+              </span>
+              <span className="font-bold font-mono">
+                {floorConfigs.length} Levels • {floorConfigs.reduce((sum, fc) => sum + fc.roomCount, 0)} Total Rooms
+              </span>
+            </div>
+          </div>
+
+          {/* 4. Room Types & Base Tariffs */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                3. Room Types & Base Tariffs
+                4. Room Types & Base Tariffs
               </span>
               <button
                 type="button"
@@ -339,7 +524,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
           {/* Manager & Payment Gateway info */}
           <div className="space-y-3 pt-2">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              4. Property Management & UPI QR
+              5. Property Management & UPI QR
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

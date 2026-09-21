@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usePG } from '../../context/PGContext';
-import { OnboardingData, RoomTypeConfig, Building, Room, Tenant } from '../../types';
+import { OnboardingData, RoomTypeConfig, Building, Room, Tenant, FloorConfig } from '../../types';
+import { getFloorLabel } from '../../utils/floor';
 import confetti from 'canvas-confetti';
 import {
   Building2,
@@ -66,6 +67,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [electricityRate, setElectricityRate] = useState<number>(10);
   const [totalFloors, setTotalFloors] = useState<number>(2);
   const [roomsPerFloor, setRoomsPerFloor] = useState<number>(3);
+  const [hasGroundFloor, setHasGroundFloor] = useState<boolean>(true);
+  const [isFloorWiseConfig, setIsFloorWiseConfig] = useState<boolean>(false);
+  const [floorConfigs, setFloorConfigs] = useState<FloorConfig[]>([
+    { floor: 0, roomCount: 3, name: 'Ground Floor' },
+    { floor: 1, roomCount: 3, name: '1st Floor' },
+    { floor: 2, roomCount: 3, name: '2nd Floor' },
+  ]);
   const [defaultRoomCapacity, setDefaultRoomCapacity] = useState<number>(2); // 2-person sharing
   const [defaultBaseRent, setDefaultBaseRent] = useState<number>(8500);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
@@ -75,6 +83,33 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
     'CCTV Security',
     'Power Backup / Inverter'
   ]);
+
+  // Synchronize floorConfigs when totalFloors, roomsPerFloor, or hasGroundFloor changes in uniform mode
+  useEffect(() => {
+    if (!isFloorWiseConfig) {
+      const configs: FloorConfig[] = [];
+      if (hasGroundFloor) {
+        configs.push({ floor: 0, roomCount: roomsPerFloor, name: 'Ground Floor' });
+      }
+      for (let f = 1; f <= totalFloors; f++) {
+        configs.push({ floor: f, roomCount: roomsPerFloor, name: getFloorLabel(f) });
+      }
+      setFloorConfigs(configs);
+    }
+  }, [totalFloors, roomsPerFloor, hasGroundFloor, isFloorWiseConfig]);
+
+  const handleUpdateFloorWiseRooms = (floorNum: number, delta: number) => {
+    setFloorConfigs(prev => prev.map(fc => {
+      if (fc.floor === floorNum) {
+        return { ...fc, roomCount: Math.max(0, Math.min(30, fc.roomCount + delta)) };
+      }
+      return fc;
+    }));
+  };
+
+  const handleToggleGroundFloor = () => {
+    setHasGroundFloor(prev => !prev);
+  };
 
   // STEP 3: Initial Tenant Intake (Optional)
   const [intakeMode, setIntakeMode] = useState<'sample' | 'custom' | 'empty'>('sample');
@@ -92,7 +127,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   };
 
   // Calculate generated total rooms
-  const totalGeneratedRooms = totalFloors * roomsPerFloor;
+  const totalGeneratedRooms = isFloorWiseConfig
+    ? floorConfigs.reduce((acc, fc) => acc + fc.roomCount, 0)
+    : (totalFloors + (hasGroundFloor ? 1 : 0)) * roomsPerFloor;
 
   useEffect(() => {
     if (buildingName && buildingName.length >= 2) {
@@ -142,6 +179,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
         electricityRatePerUnit: Number(electricityRate),
         totalFloors: Number(totalFloors),
         roomsPerFloor: Number(roomsPerFloor),
+        hasGroundFloor,
+        floorConfigs: isFloorWiseConfig ? floorConfigs : undefined,
         roomCapacity: defaultRoomCapacity,
         defaultBaseRent,
         amenities: selectedAmenities,
@@ -436,40 +475,70 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                 </div>
 
                 {/* Floor and Room Generator Matrix */}
-                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-indigo-400" />
-                      Quick Room Generator
+                      Property Floors & Room Generator
                     </span>
-                    <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-                      Generates {totalGeneratedRooms} Rooms (e.g. 101, 102, 201...)
+                    <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      {totalGeneratedRooms} Rooms total ({hasGroundFloor ? 'G01, 101, 201...' : '101, 102, 201...'})
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Total Floors</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={totalFloors}
-                        onChange={(e) => setTotalFloors(Math.max(1, Number(e.target.value)))}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono text-center font-bold"
-                      />
+                  {/* Ground Floor Toggle & Configuration Mode Switch */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    {/* Ground Floor Toggle */}
+                    <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded bg-emerald-600/20 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center border border-emerald-500/30">
+                          G
+                        </span>
+                        <div>
+                          <span className="text-xs font-semibold text-white block">Ground Floor (Floor 0)</span>
+                          <span className="text-[10px] text-slate-400">Rooms: G01, G02...</span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hasGroundFloor}
+                          onChange={handleToggleGroundFloor}
+                          className="sr-only peer"
+                        />
+                        <div className="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
                     </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Rooms Per Floor</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={15}
-                        value={roomsPerFloor}
-                        onChange={(e) => setRoomsPerFloor(Math.max(1, Number(e.target.value)))}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono text-center font-bold"
-                      />
+
+                    {/* Mode Toggle: Uniform vs Floor-Wise */}
+                    <div className="p-1 rounded-lg bg-slate-900 border border-slate-800 grid grid-cols-2 gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsFloorWiseConfig(false)}
+                        className={`py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
+                          !isFloorWiseConfig
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Uniform Counts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsFloorWiseConfig(true)}
+                        className={`py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
+                          isFloorWiseConfig
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Floor-Wise Custom
+                      </button>
                     </div>
+                  </div>
+
+                  {/* Standard Room Specs (Capacity & Rent) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
                       <label className="block text-[11px] text-slate-400 mb-1">Room Capacity</label>
                       <select
@@ -477,10 +546,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                         onChange={(e) => setDefaultRoomCapacity(Number(e.target.value))}
                         className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-semibold"
                       >
-                        <option value={1}>1 Person (Private)</option>
-                        <option value={2}>2 Sharing (Standard)</option>
-                        <option value={3}>3 Sharing</option>
-                        <option value={4}>4 Sharing</option>
+                        <option value={1}>1 Person (Private Single)</option>
+                        <option value={2}>2 Sharing (Standard Double)</option>
+                        <option value={3}>3 Sharing (Triple)</option>
+                        <option value={4}>4 Sharing (Quad)</option>
                       </select>
                     </div>
                     <div>
@@ -494,6 +563,103 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       />
                     </div>
                   </div>
+
+                  {/* Mode A: Uniform count inputs */}
+                  {!isFloorWiseConfig && (
+                    <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-900">
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          {hasGroundFloor ? 'Upper Floors' : 'Total Floors'}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={totalFloors}
+                          onChange={(e) => setTotalFloors(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono text-center font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">Rooms Per Floor</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={15}
+                          value={roomsPerFloor}
+                          onChange={(e) => setRoomsPerFloor(Math.max(1, Number(e.target.value)))}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white font-mono text-center font-bold"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode B: Floor-Wise Custom Room Count List */}
+                  {isFloorWiseConfig && (
+                    <div className="space-y-2 pt-1 border-t border-slate-900">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium pb-1">
+                        <span>Define number of rooms for each floor:</span>
+                        <button
+                          type="button"
+                          onClick={() => setTotalFloors(prev => prev + 1)}
+                          className="text-indigo-400 hover:text-indigo-300 font-bold inline-flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> Add Floor
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {floorConfigs.map((fc) => (
+                          <div
+                            key={fc.floor}
+                            className={`p-2.5 rounded-lg border flex items-center justify-between ${
+                              fc.floor === 0
+                                ? 'bg-emerald-950/20 border-emerald-800/40'
+                                : 'bg-slate-900/90 border-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-6 h-6 rounded flex items-center justify-center font-mono font-bold text-xs ${
+                                  fc.floor === 0
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                                }`}
+                              >
+                                {fc.floor === 0 ? 'G' : fc.floor}
+                              </span>
+                              <span className="text-xs font-semibold text-white">
+                                {fc.floor === 0 ? 'Ground Floor' : getFloorLabel(fc.floor)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-400">Rooms:</span>
+                              <div className="flex items-center border border-slate-700 rounded-lg overflow-hidden bg-slate-950">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateFloorWiseRooms(fc.floor, -1)}
+                                  className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-bold bg-slate-900 transition-colors"
+                                >
+                                  -
+                                </button>
+                                <span className="w-10 text-center text-xs font-mono font-bold text-white">
+                                  {fc.roomCount}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateFloorWiseRooms(fc.floor, 1)}
+                                  className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-bold bg-slate-900 transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Billing Cycle & Electricity */}
@@ -746,8 +912,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
                       <p className="text-lg font-bold font-mono text-white mt-0.5">{totalGeneratedRooms}</p>
                     </div>
                     <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/60">
-                      <span className="text-[10px] text-slate-400 uppercase">Floors</span>
-                      <p className="text-lg font-bold font-mono text-white mt-0.5">{totalFloors}</p>
+                      <span className="text-[10px] text-slate-400 uppercase">Floor Levels</span>
+                      <p className="text-sm font-bold font-mono text-white mt-0.5">
+                        {floorConfigs.length} {hasGroundFloor ? '(incl. Ground)' : 'Floors'}
+                      </p>
                     </div>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center justify-between">

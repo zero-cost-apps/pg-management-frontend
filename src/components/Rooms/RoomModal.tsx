@@ -168,8 +168,11 @@ export const RoomModal: React.FC<RoomModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Floor Level *
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Floor Level *</span>
+                <span className="text-[11px] text-emerald-600 font-semibold">
+                  {floor === 0 ? 'Ground Floor (0)' : `Floor ${floor}`}
+                </span>
               </label>
               <input
                 type="number"
@@ -178,8 +181,10 @@ export const RoomModal: React.FC<RoomModalProps> = ({
                 max={20}
                 value={floor}
                 onChange={e => setFloor(Number(e.target.value))}
+                placeholder="0 for Ground Floor"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Enter 0 for Ground Floor</span>
             </div>
           </div>
 

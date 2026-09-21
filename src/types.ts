@@ -8,6 +8,12 @@ export interface RoomTypeConfig {
   description?: string;
 }
 
+export interface FloorConfig {
+  floor: number; // 0 for Ground Floor, 1 for 1st Floor, etc.
+  roomCount: number;
+  name?: string;
+}
+
 export interface Building {
   id: string;
   ownerId: string; // PG Owner ID who owns this building
@@ -16,6 +22,7 @@ export interface Building {
   address: string;
   city: string;
   totalFloors: number;
+  floorConfigs?: FloorConfig[];
   electricityRatePerUnit: number; // e.g. 10.5
   billingDueDay: number; // e.g. 5th of month
   electricityBillingCycle: 'monthly' | 'bi-monthly';
@@ -270,6 +277,8 @@ export interface OnboardingData {
   electricityRatePerUnit: number;
   totalFloors: number;
   roomsPerFloor: number;
+  floorConfigs?: FloorConfig[];
+  hasGroundFloor?: boolean;
   roomCapacity: number;
   defaultBaseRent: number;
   amenities: string[];
