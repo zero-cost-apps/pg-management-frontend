@@ -27,19 +27,7 @@ import {
   LogOut
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-const COMMON_AMENITIES = [
-  'High-Speed Wi-Fi',
-  'Attached Washroom',
-  '3-Times Homely Food',
-  '24/7 RO Drinking Water',
-  'CCTV Security',
-  'Power Backup / Inverter',
-  'Daily Room Housekeeping',
-  'Washing Machine & Laundry',
-  'Air Conditioner (AC)',
-  'Individual Cupboard / Locker'
-];
+import { COMMON_AMENITIES, DEFAULT_BUILDING_AMENITIES } from '../../data/amenities';
 
 interface OnboardingWizardProps {
   onComplete?: () => void;
@@ -76,13 +64,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   ]);
   const [defaultRoomCapacity, setDefaultRoomCapacity] = useState<number>(2); // 2-person sharing
   const [defaultBaseRent, setDefaultBaseRent] = useState<number>(8500);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
-    'High-Speed Wi-Fi',
-    'Attached Washroom',
-    '24/7 RO Drinking Water',
-    'CCTV Security',
-    'Power Backup / Inverter'
-  ]);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(DEFAULT_BUILDING_AMENITIES);
 
   // Synchronize floorConfigs when totalFloors, roomsPerFloor, or hasGroundFloor changes in uniform mode
   useEffect(() => {

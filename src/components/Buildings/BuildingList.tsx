@@ -16,7 +16,8 @@ import {
   QrCode,
   Shield,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Check
 } from 'lucide-react';
 
 interface BuildingListProps {
@@ -195,6 +196,28 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onNavigateToRooms })
                     ))}
                   </div>
                 </div>
+
+                {/* Property Amenities */}
+                {building.amenities && building.amenities.length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                      Property Amenities ({building.amenities.length})
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {building.amenities.slice(0, 6).map((amenity, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-medium flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                          <span>{amenity}</span>
+                        </span>
+                      ))}
+                      {building.amenities.length > 6 && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">
+                          +{building.amenities.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Manager & QR Contact */}
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">

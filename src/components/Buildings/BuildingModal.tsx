@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePG } from '../../context/PGContext';
 import { Building, RoomTypeConfig, FloorConfig } from '../../types';
 import { getFloorLabel } from '../../utils/floor';
+import { COMMON_AMENITIES, DEFAULT_BUILDING_AMENITIES } from '../../data/amenities';
 import { X, Building2, Check, Plus, Trash2, Zap, DollarSign, Layers, Sparkles, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface BuildingModalProps {
@@ -28,6 +29,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
   const [managerPhone, setManagerPhone] = useState('');
   const [upiId, setUpiId] = useState('');
   const [rulesNotes, setRulesNotes] = useState('');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(DEFAULT_BUILDING_AMENITIES);
 
   // Floor-Wise Room Configuration State
   const [hasGroundFloor, setHasGroundFloor] = useState<boolean>(true);
@@ -70,6 +72,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       setManagerPhone(buildingToEdit.managerPhone);
       setUpiId(buildingToEdit.upiId || '');
       setRulesNotes(buildingToEdit.rulesNotes || '');
+      setSelectedAmenities(buildingToEdit.amenities && buildingToEdit.amenities.length > 0 ? buildingToEdit.amenities : DEFAULT_BUILDING_AMENITIES);
       setGenerationFeedback(null);
       const bldRooms = rooms.filter(r => r.buildingId === buildingToEdit.id);
       setGenerateRooms(bldRooms.length === 0);
@@ -98,6 +101,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
       setManagerPhone('');
       setUpiId('');
       setRulesNotes('');
+      setSelectedAmenities(DEFAULT_BUILDING_AMENITIES);
       setGenerateRooms(true);
       setGenerationFeedback(null);
       setDefaultRoomTypeId('rt-double');
@@ -216,6 +220,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         managerPhone: managerPhone.trim(),
         upiId: upiId.trim() || undefined,
         rulesNotes: rulesNotes.trim() || undefined,
+        amenities: selectedAmenities,
         roomTypes,
         generateRooms,
         defaultRoomTypeId: selectedRtId,
@@ -237,7 +242,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
         managerPhone: managerPhone.trim() || '+91 90000 00000',
         upiId: upiId.trim() || undefined,
         rulesNotes: rulesNotes.trim() || undefined,
-        amenities: ['Wi-Fi', 'Daily Meals', 'Housekeeping', 'CCTV Security'],
+        amenities: selectedAmenities,
         roomTypes,
         generateRooms,
         defaultRoomTypeId: selectedRtId,
@@ -790,6 +795,63 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
                 onChange={e => setRulesNotes(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
               />
+            </div>
+          </div>
+
+          {/* 6. Property Amenities */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                6. Property Amenities ({selectedAmenities.length} selected)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAmenities(DEFAULT_BUILDING_AMENITIES)}
+                  className="text-[10px] text-indigo-600 font-semibold hover:underline"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAmenities(COMMON_AMENITIES)}
+                  className="text-[10px] text-slate-500 font-semibold hover:underline"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAmenities([])}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 font-semibold"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded-xl bg-slate-50/50">
+              {COMMON_AMENITIES.map((amenity) => {
+                const isSelected = selectedAmenities.includes(amenity);
+                return (
+                  <button
+                    type="button"
+                    key={amenity}
+                    onClick={() => {
+                      setSelectedAmenities(prev =>
+                        prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+                      );
+                    }}
+                    className={`p-2 rounded-lg border text-left text-xs transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-[11px] truncate">{amenity}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
