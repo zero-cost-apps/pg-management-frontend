@@ -196,6 +196,7 @@ export const PGProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const createBuildingMutation = useCreateBuildingMutation();
   const updateBuildingMutation = useUpdateBuildingMutation();
   const deleteBuildingMutation = useDeleteBuildingMutation();
+  const generateRoomsMutation = useGenerateRoomsMutation();
 
   const createRoomMutation = useCreateRoomMutation();
   const updateRoomMutation = useUpdateRoomMutation();
